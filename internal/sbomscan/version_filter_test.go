@@ -35,6 +35,13 @@ func TestFilterVulnsByVersion(t *testing.T) {
 				{ID: "CVE-OS", Fixed: []string{"1.0.0"}},
 			},
 		},
+		{
+			System: "composer", Name: "twig/twig", Version: "3.15.0",
+			PURL: "pkg:composer/twig/twig@3.15.0",
+			Vulnerabilities: []onlinescan.Vulnerability{
+				{ID: "CVE-WILDCARD-FIX", Fixed: []string{"1.44.8", "3.14.x"}},
+			},
+		},
 	}
 	for i := range comps {
 		comps[i].TopSeverity, comps[i].VulnCount = topAndCount(comps[i].Vulnerabilities)
@@ -58,6 +65,9 @@ func TestFilterVulnsByVersion(t *testing.T) {
 	}
 	if comps[2].VulnCount != 1 {
 		t.Errorf("OS package must be left to distro_filter, got %d", comps[2].VulnCount)
+	}
+	if comps[3].VulnCount != 0 {
+		t.Errorf("version above wildcard branch fix should be dropped, got %d", comps[3].VulnCount)
 	}
 }
 

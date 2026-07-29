@@ -64,7 +64,7 @@ func TestQueryOSV_MapsAndSplitsMalware(t *testing.T) {
 		DatabaseSpecific: map[string]any{"severity": "HIGH"},
 		Affected:         []osvAffected{{Ranges: []osvRange{{Events: []osvEvent{{Introduced: "0"}, {Fixed: "1.2.3"}}}}}},
 	}
-	got := mapOSV(v)
+	got := mapOSV(v, "1.0.0")
 	if got.Severity != SevHigh {
 		t.Errorf("severity = %q; want HIGH", got.Severity)
 	}
@@ -103,7 +103,7 @@ func TestMapOSV_DebianNamespacedIDExtractsCVE(t *testing.T) {
 			Ranges:  []osvRange{{Type: "ECOSYSTEM", Events: []osvEvent{{Fixed: "2.31-13+deb11u7"}}}},
 		}},
 	}
-	got := mapOSV(v)
+	got := mapOSV(v, "2.31-13+deb11u7")
 	if got.CVE != "CVE-2023-4911" {
 		t.Errorf("CVE = %q; want CVE-2023-4911 (KEV/PoC matching depends on this)", got.CVE)
 	}

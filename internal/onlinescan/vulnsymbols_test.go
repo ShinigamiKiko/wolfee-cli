@@ -26,7 +26,7 @@ func TestExtractVulnSymbols_GoImports(t *testing.T) {
 	if err := json.Unmarshal([]byte(pgxLikeOSV), &v); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	got := mapOSV(v)
+	got := mapOSV(v, "5.8.0")
 
 	if len(got.VulnerableSymbols) != 2 {
 		t.Fatalf("imports = %d; want 2 (%+v)", len(got.VulnerableSymbols), got.VulnerableSymbols)
@@ -54,7 +54,7 @@ func TestExtractVulnSymbols_NoSymbols(t *testing.T) {
 	if err := json.Unmarshal([]byte(noSym), &v); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	got := mapOSV(v)
+	got := mapOSV(v, "1.0.0")
 	if len(got.VulnerableSymbols) != 1 || got.VulnerableSymbols[0].Path != "example.com/x/pkg" {
 		t.Fatalf("imports = %+v; want one path, no symbols", got.VulnerableSymbols)
 	}
@@ -75,7 +75,7 @@ func TestExtractVulnSymbols_NonGoSkipped(t *testing.T) {
 	if err := json.Unmarshal([]byte(npm), &v); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got := mapOSV(v); len(got.VulnerableSymbols) != 0 {
+	if got := mapOSV(v, "1.0.0"); len(got.VulnerableSymbols) != 0 {
 		t.Errorf("non-Go must yield no symbols, got %+v", got.VulnerableSymbols)
 	}
 }

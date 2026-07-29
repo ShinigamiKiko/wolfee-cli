@@ -120,7 +120,7 @@ func queryOSV(ctx context.Context, hc *http.Client, purl string) (vulns []Vulner
 				mal.MalIDs = appendUnique(mal.MalIDs, v.ID)
 				continue
 			}
-			vulns = append(vulns, mapOSV(v))
+			vulns = append(vulns, mapOSV(v, purlVersion(purl)))
 		}
 
 		if out.NextPageToken == "" {
@@ -131,7 +131,7 @@ func queryOSV(ctx context.Context, hc *http.Client, purl string) (vulns []Vulner
 	return vulns, mal, nil
 }
 
-func mapOSV(v osvVuln) Vulnerability {
+func mapOSV(v osvVuln, installed string) Vulnerability {
 	out := Vulnerability{
 		ID:          v.ID,
 		Aliases:     v.Aliases,
@@ -149,7 +149,7 @@ func mapOSV(v osvVuln) Vulnerability {
 	}
 	out.CWEs = extractOSVCWEs(v)
 	out.VulnerableSymbols = extractVulnSymbols(v)
-	out.Fixed = collectFixedVersions(v.Affected)
+	out.Fixed = orderFixesForVersion(collectFixedVersions(v.Affected), installed)
 	out.DistroStatus = collectOSVDistroStatus(v)
 	return out
 }

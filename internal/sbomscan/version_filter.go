@@ -60,9 +60,10 @@ func versionPastAllFixes(cur []int, fixes []string) bool {
 	return true
 }
 
-// parseRelease parses a plain dotted release like "v0.49.0" or "1.25.10" into
-// its numeric segments. Pre-release and build metadata (anything with '-' or
-// '+') are rejected so ambiguous versions are left untouched.
+// parseRelease parses a dotted release like "v0.49.0", "1.25.10", or the
+// wildcard branch "3.14.x" into numeric segments. Pre-release and build
+// metadata (anything with '-' or '+') are rejected so ambiguous versions are
+// left untouched.
 func parseRelease(v string) ([]int, bool) {
 	v = strings.TrimSpace(strings.ToLower(v))
 	v = strings.TrimPrefix(v, "v")
@@ -71,12 +72,18 @@ func parseRelease(v string) ([]int, bool) {
 	}
 	parts := strings.Split(v, ".")
 	out := make([]int, 0, len(parts))
-	for _, p := range parts {
+	for i, p := range parts {
+		if (p == "x" || p == "*") && i == len(parts)-1 {
+			break
+		}
 		n, err := strconv.Atoi(p)
 		if err != nil {
 			return nil, false
 		}
 		out = append(out, n)
+	}
+	if len(out) == 0 {
+		return nil, false
 	}
 	return out, true
 }
