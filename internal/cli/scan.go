@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -195,15 +196,30 @@ func runScan(ctx context.Context, args []string) error {
 	}
 
 	if o.server != "" {
-		if len(bomBytes) == 0 {
-			logger.Warn("server upload skipped: trivy image mode produces no CycloneDX SBOM to upload")
+		// Send the enriched report rather than the raw catalogue. It carries the
+		// same components plus everything this scan established — severities,
+		// CVSS, KEV, EPSS, PoCs, fix versions, reachability — and the server
+		// takes those findings as-is instead of resolving them again with less
+		// data. The bare SBOM stays the fallback when there is no report.
+		payload := bomBytes
+		uploading := "SBOM"
+		if report != nil {
+			if encoded, perr := json.Marshal(report); perr == nil {
+				payload, uploading = encoded, "scan report"
+			} else {
+				logger.Warn("could not serialize the report, falling back to the plain SBOM: %v", perr)
+			}
+		}
+
+		if len(payload) == 0 {
+			logger.Warn("server upload skipped: nothing to upload for this input mode")
 		} else {
-			logger.Step(fmt.Sprintf("Uploading SBOM to %s (project=%s)", o.server, o.project))
+			logger.Step(fmt.Sprintf("Uploading %s to %s (project=%s)", uploading, o.server, o.project))
 			if err := upload.SendBOM(ctx, upload.Params{
 				ServerURL:   o.server,
 				Token:       o.token,
 				ProjectName: o.project,
-				BOMBytes:    bomBytes,
+				BOMBytes:    payload,
 				Logger:      logger,
 			}); err != nil {
 				logger.Warn("upload failed: %v", err)
