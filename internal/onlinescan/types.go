@@ -115,6 +115,10 @@ type Toxic struct {
 	Found      bool     `json:"found"`
 	Categories []string `json:"categories,omitempty"`
 	Notes      []string `json:"notes,omitempty"`
+	// Legacy aliases keep enriched reports consumable by older Wolfee servers.
+	ProblemType string `json:"problemType,omitempty"`
+	Description string `json:"description,omitempty"`
+	CommitLink  string `json:"commitLink,omitempty"`
 
 	// Remediation suggests an upgrade off the flagged (protestware/toxic)
 	// release, treated like a vulnerability fix. Computed via deps.dev.

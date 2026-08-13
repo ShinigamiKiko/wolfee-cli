@@ -163,6 +163,9 @@ func toxicReposToToxic(hits []toxicReposEntry) Toxic {
 		if e.ProblemType != "" {
 			if _, dup := seenCat[e.ProblemType]; !dup {
 				t.Categories = append(t.Categories, e.ProblemType)
+				if t.ProblemType == "" {
+					t.ProblemType = e.ProblemType
+				}
 				seenCat[e.ProblemType] = struct{}{}
 			}
 		}
@@ -172,6 +175,12 @@ func toxicReposToToxic(hits []toxicReposEntry) Toxic {
 		}
 		if e.CommitLink != "" {
 			note = note + " (" + e.CommitLink + ")"
+			if t.CommitLink == "" {
+				t.CommitLink = e.CommitLink
+			}
+		}
+		if t.Description == "" {
+			t.Description = strings.TrimSpace(e.Description)
 		}
 		t.Notes = append(t.Notes, note)
 	}
