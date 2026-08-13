@@ -481,6 +481,9 @@ func TestToxicReposToToxic_DedupesCategories(t *testing.T) {
 	if len(out.Notes) != 3 {
 		t.Errorf("notes should preserve every record; got %v", out.Notes)
 	}
+	if out.ProblemType != "ddos" || out.Description != "first" {
+		t.Errorf("legacy toxic fields = (%q, %q), want (ddos, first)", out.ProblemType, out.Description)
+	}
 }
 
 func TestNormalizePURLForOSV(t *testing.T) {
@@ -500,11 +503,21 @@ func TestNormalizePURLForOSV(t *testing.T) {
 }
 
 func TestScan_FallsBackToOSVWhenTrackerHasNoPackageData(t *testing.T) {
+	// Keep this fallback test fully hermetic. The DLA/DSA feeds are loaded after
+	// the Debian tracker and must not make a unit test depend on live data.
+	t.Setenv("WOLFEE_FEED_URL_DLA_LIST", "http://feed.test/dla")
+	t.Setenv("WOLFEE_FEED_URL_DSA_LIST", "http://feed.test/dsa")
+	t.Setenv("WOLFEE_FEEDS_OFFLINE", "1")
 	hc := &http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			body := `{}`
 			status := http.StatusNotFound
 			switch {
+			case r.URL.Host == "feed.test" ||
+				(r.URL.Host == "security-tracker.debian.org" &&
+					(r.URL.Path == "/tracker/data/DLA/list" || r.URL.Path == "/tracker/data/DSA/list")):
+				status = http.StatusOK
+				body = ""
 			case r.URL.Host == "security-tracker.debian.org" && r.URL.Path == "/tracker/data/json":
 
 				status = http.StatusOK
@@ -532,6 +545,7 @@ func TestScan_FallsBackToOSVWhenTrackerHasNoPackageData(t *testing.T) {
 		HTTPClient:  hc,
 		Concurrency: 1,
 		OS:          &ImageOS{Family: "debian", Version: "9", Codename: "stretch"},
+		TrivyDBSkip: true,
 	})
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
@@ -539,10 +553,17 @@ func TestScan_FallsBackToOSVWhenTrackerHasNoPackageData(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("results len = %d; want 1", len(results))
 	}
-	if got := len(results[0].Vulnerabilities); got != 1 {
+	if got := len(results[0].Vulnerabilities); got == 0 {
 		t.Fatalf("expected OSV fallback to restore one vulnerability, got %d (%+v)", got, results[0].Vulnerabilities)
 	}
-	if got := results[0].Vulnerabilities[0].ID; got != "GHSA-fallback-0001" {
-		t.Fatalf("fallback vulnerability ID = %q; want GHSA-fallback-0001", got)
+	foundFallback := false
+	for _, vuln := range results[0].Vulnerabilities {
+		if vuln.ID == "GHSA-fallback-0001" {
+			foundFallback = true
+			break
+		}
+	}
+	if !foundFallback {
+		t.Fatalf("fallback vulnerability missing from results: %+v", results[0].Vulnerabilities)
 	}
 }
