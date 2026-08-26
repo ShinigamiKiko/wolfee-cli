@@ -1,4 +1,4 @@
-module sca-go/cli
+module github.com/shinigamikiko/wolfee-cli
 
 go 1.25.0
 

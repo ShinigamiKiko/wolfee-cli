@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"sca-go/cli/internal/onlinescan/feedcache"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan/feedcache"
 )
 
 const (

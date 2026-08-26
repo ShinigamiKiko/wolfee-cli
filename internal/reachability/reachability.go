@@ -3,7 +3,7 @@ package reachability
 import (
 	"context"
 
-	"sca-go/cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
 )
 
 type Options struct {

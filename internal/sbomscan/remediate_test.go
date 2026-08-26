@@ -5,7 +5,7 @@ import (
 
 	"deps.dev/util/semver"
 
-	"sca-go/cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
 )
 
 func TestDepsDevTarget(t *testing.T) {

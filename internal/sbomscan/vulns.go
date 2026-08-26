@@ -2,8 +2,8 @@ package sbomscan
 
 import (
 	"fmt"
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
 	"strings"
 )
 

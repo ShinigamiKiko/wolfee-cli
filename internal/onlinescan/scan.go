@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"sca-go/cli/internal/onlinescan/feedcache"
-	"sca-go/cli/internal/trivydb"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan/feedcache"
+	"github.com/shinigamikiko/wolfee-cli/internal/trivydb"
 )
 
 type Component struct {

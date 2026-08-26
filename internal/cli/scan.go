@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sca-go/cli/internal/cdxgen"
-	"sca-go/cli/internal/output"
-	"sca-go/cli/internal/reachability"
-	"sca-go/cli/internal/sbomscan"
-	"sca-go/cli/internal/upload"
+	"github.com/shinigamikiko/wolfee-cli/internal/cdxgen"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/sbomscan"
+	"github.com/shinigamikiko/wolfee-cli/internal/upload"
 )
 
 type scanOpts struct {
@@ -42,9 +42,10 @@ type scanOpts struct {
 	quiet   bool
 	debug   bool
 
-	server  string
-	token   string
-	project string
+	server         string
+	token          string
+	project        string
+	uploadRequired bool
 
 	reachable      string
 	govulncheckBin string
@@ -213,6 +214,9 @@ func runScan(ctx context.Context, args []string) error {
 
 		if len(payload) == 0 {
 			logger.Warn("server upload skipped: nothing to upload for this input mode")
+			if o.uploadRequired {
+				return errors.New("upload required: nothing to upload for this input mode")
+			}
 		} else {
 			logger.Step(fmt.Sprintf("Uploading %s to %s (project=%s)", uploading, o.server, o.project))
 			if err := upload.SendBOM(ctx, upload.Params{
@@ -223,6 +227,9 @@ func runScan(ctx context.Context, args []string) error {
 				Logger:      logger,
 			}); err != nil {
 				logger.Warn("upload failed: %v", err)
+				if o.uploadRequired {
+					return fmt.Errorf("upload required: %w", err)
+				}
 			}
 		}
 	}
@@ -288,11 +295,13 @@ func writeReport(o *scanOpts, report *sbomscan.Report) error {
 		renderer = output.JSON{}
 	case "sarif":
 		renderer = output.SARIF{}
+	case "fix-plan":
+		renderer = output.FixPlan{NoColor: o.outFile != ""}
 	default:
 		renderer = output.Table{NoColor: o.outFile != ""}
 	}
 	if o.outFile != "" {
-		f, err := os.Create(o.outFile)
+		f, err := os.OpenFile(o.outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 		if err != nil {
 			return err
 		}

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/sbomscan"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/sbomscan"
 )
 
 func TestScanOpts_ValidateRequiresOneInput(t *testing.T) {

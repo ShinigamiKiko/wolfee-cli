@@ -13,6 +13,33 @@ type tReport struct {
 	Totals      tTotals
 	Components  []tComponent
 }
+type tFixPlanReport struct {
+	Source  string
+	FixPlan *tFixPlan
+}
+type tFixPlan struct {
+	Groups     []tFixGroup
+	Unresolved []tFixPackage
+}
+type tFixGroup struct {
+	Direct         string
+	CurrentVersion string
+	FixVersion     string
+	ChildFixed     string
+	Note           string
+	Packages       []tFixPackage
+}
+type tFixPackage struct {
+	Package         string
+	Vulnerabilities []tFixVulnerability
+	DependencyPaths [][]string
+}
+type tFixVulnerability struct {
+	ID         string
+	CVE        string
+	Severity   string
+	FixVersion string
+}
 type tTotals struct {
 	Components, Scanned, Skipped, WithVulns, Malware, Toxic int
 	CRITICAL, HIGH, MEDIUM, LOW                             int
@@ -88,6 +115,42 @@ func TestJSON_Render_RoundTrips(t *testing.T) {
 	}
 	if totals["Malware"].(float64) != 1 {
 		t.Errorf("Totals.Malware = %v; want 1", totals["Malware"])
+	}
+}
+
+func TestFixPlan_Render_OneLinePerVulnerability(t *testing.T) {
+	var buf bytes.Buffer
+	report := tFixPlanReport{Source: "fs:./app", FixPlan: &tFixPlan{Groups: []tFixGroup{{
+		Direct: "express", CurrentVersion: "4.18.2", FixVersion: "4.21.2", ChildFixed: "0.1.8",
+		Packages: []tFixPackage{{Package: "qs@6.11.0", Vulnerabilities: []tFixVulnerability{{CVE: "CVE-2022-24999", Severity: "HIGH", FixVersion: "0.1.8"}}, DependencyPaths: [][]string{{"app", "express", "qs"}}}},
+	}}}}
+	if err := (FixPlan{NoColor: true}).Render(&buf, report); err != nil {
+		t.Fatal(err)
+	}
+	got := buf.String()
+	if !strings.Contains(got, "qs@6.11.0  CVE-2022-24999  HIGH") {
+		t.Errorf("fix-plan output missing compact vulnerability row:\n%s", got)
+	}
+	if !strings.Contains(got, "0.1.8") {
+		t.Errorf("fix-plan output missing child fix version:\n%s", got)
+	}
+	if !strings.Contains(got, "path: app -> express -> qs") {
+		t.Errorf("fix-plan output missing dependency path:\n%s", got)
+	}
+}
+
+func TestFixPlan_Render_UsesColors(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	var buf bytes.Buffer
+	report := tFixPlanReport{FixPlan: &tFixPlan{Groups: []tFixGroup{{
+		Direct: "express", CurrentVersion: "4.18.2", FixVersion: "4.21.2",
+		Packages: []tFixPackage{{Package: "qs@6.11.0", Vulnerabilities: []tFixVulnerability{{CVE: "CVE-1", Severity: "HIGH"}}}},
+	}}}}
+	if err := (FixPlan{}).Render(&buf, report); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "\x1b[31m") || !strings.Contains(buf.String(), "\x1b[32m") {
+		t.Errorf("fix-plan output is missing expected colors:\n%q", buf.String())
 	}
 }
 

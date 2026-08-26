@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
 )
 
 func SourceLibSet(bom []byte) map[string]bool {

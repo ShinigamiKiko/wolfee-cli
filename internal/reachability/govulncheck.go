@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
 )
 
 type gvkMessage struct {

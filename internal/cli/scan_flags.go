@@ -70,7 +70,7 @@ SBOM SAVE (filesystem + image modes):
                      a second "trivy image --format cyclonedx" run)
 
 OUTPUT:
-  --format FMT       table | json | sarif (default: table)
+  --format FMT       table | json | sarif | fix-plan (default: table)
   --output PATH      Write report to file instead of stdout
   --fail-on LEVEL    Exit non-zero if a finding >= LEVEL exists: none|low|medium|high|critical
                      (default: none - never fail on findings)
@@ -80,6 +80,7 @@ SERVER UPLOAD (optional - fire-and-forget alongside local output):
   --server URL       Wolfee server URL (e.g. https://wolfee.example.com)
   --token TOKEN      API token (or pass via WOLFEE_TOKEN env var)
   --project NAME     Project name or UUID (auto-create if missing)
+  --upload-required  Fail the scan when server upload fails
 
 SCAN:
   --concurrency N    Parallel OSV queries (default: 16)
@@ -95,6 +96,8 @@ EXAMPLES:
   wolfee scan --image my-app:latest --compare ./src
   wolfee scan --image my-app:latest --fail-on high
   wolfee scan --image my-app:latest --format sarif --output report.sarif
+  wolfee scan ./my-app --format fix-plan
+  wolfee scan ./my-app --format json
   wolfee scan --bom existing.cdx.json --format sarif --output report.sarif
   wolfee scan --purl pkg:npm/ngx-bootstrap@20.0.4
   wolfee scan --reachable ./my-go-service --fail-on high
@@ -135,6 +138,7 @@ func parseScanFlags(args []string) (*scanOpts, error) {
 	fs.StringVar(&o.server, "server", "", "Wolfee server URL")
 	fs.StringVar(&o.token, "token", "", "API token (or WOLFEE_TOKEN env)")
 	fs.StringVar(&o.project, "project", "", "project name/UUID")
+	fs.BoolVar(&o.uploadRequired, "upload-required", false, "fail when server upload fails")
 	fs.IntVar(&o.concurrency, "concurrency", 0, "parallel scans (0 = auto)")
 	fs.BoolVar(&o.trivyDBSkip, "trivy-db-skip", false, "disable Trivy DB stage")
 	fs.StringVar(&o.trivyDBMirror, "trivy-db-mirror", "", "custom OCI registry host for trivy-db (default: ghcr.io)")
@@ -183,9 +187,9 @@ func (o *scanOpts) validate() error {
 		return errors.New("--image, --bom, --purl and a project path are mutually exclusive")
 	}
 	switch strings.ToLower(o.format) {
-	case "", "table", "json", "sarif":
+	case "", "table", "json", "sarif", "fix-plan":
 	default:
-		return fmt.Errorf("unsupported --format %q (table|json|sarif)", o.format)
+		return fmt.Errorf("unsupported --format %q (table|json|sarif|fix-plan)", o.format)
 	}
 	switch strings.ToLower(o.failOn) {
 	case "", "none", "low", "medium", "high", "critical":
@@ -194,6 +198,9 @@ func (o *scanOpts) validate() error {
 	}
 	if o.server != "" && o.project == "" {
 		return errors.New("--server requires --project")
+	}
+	if o.uploadRequired && o.server == "" {
+		return errors.New("--upload-required requires --server")
 	}
 	if o.scout && o.image == "" {
 		return errors.New("--scout only applies to --image mode (it attributes image layers base-vs-app)")

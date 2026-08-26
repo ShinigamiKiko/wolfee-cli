@@ -7,9 +7,9 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILT   ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
 LDFLAGS := -s -w \
-  -X sca-go/cli/internal/cli.Version=$(VERSION) \
-  -X sca-go/cli/internal/cli.Commit=$(COMMIT) \
-  -X sca-go/cli/internal/cli.Built=$(BUILT)
+  -X github.com/shinigamikiko/wolfee-cli/internal/cli.Version=$(VERSION) \
+  -X github.com/shinigamikiko/wolfee-cli/internal/cli.Commit=$(COMMIT) \
+  -X github.com/shinigamikiko/wolfee-cli/internal/cli.Built=$(BUILT)
 
 .PHONY: build test test-race vet lint fmt tidy clean docker install tools help
 

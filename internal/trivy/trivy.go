@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"sca-go/cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
 )
 
 type Options struct {
@@ -207,9 +207,7 @@ func Scan(ctx context.Context, o Options) (*Report, error) {
 		}
 		sbomArgs = append(sbomArgs, o.commonArgs()...)
 		if err := o.run(ctx, bin, sbomArgs); err != nil {
-			if o.Logger != nil {
-				o.Logger.Warn("could not save SBOM to %s: %v", o.SaveSBOM, err)
-			}
+			return nil, fmt.Errorf("trivy: save SBOM to %s: %w", o.SaveSBOM, err)
 		} else if o.Logger != nil {
 			o.Logger.Step(fmt.Sprintf("Saved CycloneDX SBOM to %s", o.SaveSBOM))
 		}

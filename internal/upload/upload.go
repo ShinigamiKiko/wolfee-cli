@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"sca-go/cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
 )
 
 type Params struct {
@@ -83,7 +83,8 @@ func SendBOM(ctx context.Context, p Params) error {
 
 	var out uploadResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err == nil && p.Logger != nil && out.Token != "" {
-		p.Logger.Step(fmt.Sprintf("Server queued job token=%s", out.Token))
+		// Never expose server job tokens in CI logs or terminal output.
+		p.Logger.Step("Server queued the scan job")
 	}
 	return nil
 }
