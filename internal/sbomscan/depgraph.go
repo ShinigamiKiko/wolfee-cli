@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	maxDepPaths = 25
+	maxDepPaths = 100
 
 	maxDepPathLen = 32
 
@@ -67,7 +67,7 @@ func annotateDependencyPaths(r *Report) {
 		if c.BOMRef == "" || roots[c.BOMRef] {
 			continue
 		}
-		refPaths := resolveDepPaths(c.BOMRef, parents, roots)
+		refPaths, truncated := resolveDepPaths(c.BOMRef, parents, roots)
 		if len(refPaths) == 0 {
 			continue
 		}
@@ -84,17 +84,18 @@ func annotateDependencyPaths(r *Report) {
 			out = append(out, lp)
 		}
 		c.DependencyPaths = out
+		c.DependencyPathsTruncated = truncated
 	}
 }
 
-func resolveDepPaths(target string, parents map[string][]string, roots map[string]bool) [][]string {
+func resolveDepPaths(target string, parents map[string][]string, roots map[string]bool) ([][]string, bool) {
 	onStack := map[string]bool{target: true}
 	budget := maxDepVisits
 
-	var walk func(node string, depth int) [][]string
-	walk = func(node string, depth int) [][]string {
+	var walk func(node string, depth int) ([][]string, bool)
+	walk = func(node string, depth int) ([][]string, bool) {
 		if budget <= 0 || depth > maxDepPathLen {
-			return nil
+			return nil, true
 		}
 		budget--
 
@@ -110,19 +111,23 @@ func resolveDepPaths(target string, parents map[string][]string, roots map[strin
 		}
 
 		var paths [][]string
+		truncated := false
 
 		if len(nonRoot) == 0 {
 			paths = append(paths, []string{node})
 		}
 		for _, p := range nonRoot {
 			onStack[p] = true
-			for _, sub := range walk(p, depth+1) {
+			subPaths, subTruncated := walk(p, depth+1)
+			truncated = truncated || subTruncated
+			for _, sub := range subPaths {
 
 				np := make([]string, len(sub)+1)
 				copy(np, sub)
 				np[len(sub)] = node
 				paths = append(paths, np)
 				if len(paths) >= maxDepPaths {
+					truncated = true
 					break
 				}
 			}
@@ -131,12 +136,15 @@ func resolveDepPaths(target string, parents map[string][]string, roots map[strin
 				break
 			}
 		}
-		return paths
+		return paths, truncated
 	}
 
 	var out [][]string
+	truncated := false
 	seen := map[string]bool{}
-	for _, p := range walk(target, 0) {
+	paths, walkTruncated := walk(target, 0)
+	truncated = truncated || walkTruncated
+	for _, p := range paths {
 		if len(p) < 2 {
 			continue
 		}
@@ -147,6 +155,7 @@ func resolveDepPaths(target string, parents map[string][]string, roots map[strin
 		seen[k] = true
 		out = append(out, p)
 		if len(out) >= maxDepPaths {
+			truncated = true
 			break
 		}
 	}
@@ -157,7 +166,7 @@ func resolveDepPaths(target string, parents map[string][]string, roots map[strin
 		}
 		return strings.Join(out[i], ">") < strings.Join(out[j], ">")
 	})
-	return out
+	return out, truncated
 }
 
 func pkgLabel(name, version string) string {

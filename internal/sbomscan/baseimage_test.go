@@ -3,7 +3,7 @@ package sbomscan
 import (
 	"testing"
 
-	"sca-go/cli/internal/trivy"
+	"github.com/shinigamikiko/wolfee-cli/internal/trivy"
 )
 
 func TestPinnedRef(t *testing.T) {

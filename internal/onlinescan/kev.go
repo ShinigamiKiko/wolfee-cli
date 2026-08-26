@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"sca-go/cli/internal/onlinescan/feedcache"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan/feedcache"
 )
 
 const kevURL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"

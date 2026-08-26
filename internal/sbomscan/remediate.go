@@ -11,9 +11,9 @@ import (
 
 	"deps.dev/util/semver"
 
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/output"
-	"sca-go/cli/internal/sbomscan/internal/purl"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/sbomscan/internal/purl"
 )
 
 const (

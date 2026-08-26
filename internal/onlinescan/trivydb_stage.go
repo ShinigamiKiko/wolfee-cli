@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sca-go/cli/internal/trivydb"
+	"github.com/shinigamikiko/wolfee-cli/internal/trivydb"
 )
 
 func stageTrivyDB(results []*ComponentResult, tdb *trivydb.Reader, platform, imageFamily, imageRelease, imageCodename, imageArch string, log ProgressLogger) (processed, added, withHits int) {

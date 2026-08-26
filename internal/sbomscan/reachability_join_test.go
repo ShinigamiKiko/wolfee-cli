@@ -3,8 +3,8 @@ package sbomscan
 import (
 	"testing"
 
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
 )
 
 func TestGoModulePath(t *testing.T) {

@@ -1,6 +1,6 @@
 package sbomscan
 
-import "sca-go/cli/internal/onlinescan"
+import "github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
 
 type Report struct {
 	Generator    string            `json:"generator,omitempty"`
@@ -9,6 +9,7 @@ type Report struct {
 	OS           *ReportOS         `json:"os,omitempty"`
 	Totals       Totals            `json:"totals"`
 	Document     *Document         `json:"document,omitempty"`
+	FixPlan      *FixPlan          `json:"fixPlan,omitempty"`
 	Dependencies []Dependency      `json:"dependencies,omitempty"`
 	Annotations  []Annotation      `json:"annotations,omitempty"`
 	Components   []ComponentReport `json:"components"`
@@ -191,7 +192,8 @@ type ComponentReport struct {
 
 	IntroducedBy string `json:"introducedBy,omitempty"`
 
-	DependencyPaths [][]string `json:"dependencyPaths,omitempty"`
+	DependencyPaths          [][]string `json:"dependencyPaths,omitempty"`
+	DependencyPathsTruncated bool       `json:"dependencyPathsTruncated,omitempty"`
 
 	Origin string `json:"origin,omitempty"`
 

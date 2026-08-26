@@ -101,13 +101,14 @@ Feeds are cached to disk (TTL + conditional GET). Zero pre-warming needed.
 ### Install
 
 ```bash
-# From source (requires Go 1.21+)
+# Install the latest tagged CLI (requires Go 1.25+)
 go install github.com/shinigamikiko/wolfee-cli/cmd/wolfee@latest
 
-# Or build locally
+# Or build from source
 git clone https://github.com/shinigamikiko/wolfee-cli
 cd wolfee-cli
 make build          # → ./bin/wolfee
+export PATH="$PWD/bin:$PATH"
 make tools          # → ./bin/trivy + ./bin/govulncheck
 ```
 
@@ -127,9 +128,48 @@ docker run --rm wolfee --image nginx:latest
 | `--reachable` (Go) | `govulncheck` on PATH (or `--govulncheck-bin <path>`) |
 | `--reachable` (JS / Python / Java / PHP) | `atom` + `atom-parsetools` on PATH (or `--atom-bin <path>`) |
 
+`--image` needs `trivy`. Project and reachability scans need `cdxgen`.
+Use `make docker` when you want all runtime tools bundled in one image.
+Upload is best-effort by default; add `--upload-required` in CI when a
+successful server upload is part of the job contract.
+
 ---
 
 ## Usage
+
+### Fix plan
+
+The `fix-plan` format first lists all findings, then groups actionable updates.
+Each vulnerable package and advisory stays visible on its own compact line,
+followed by the dependency paths that brought it in:
+
+```text
+VULNERABILITIES
+
+  PACKAGE                CVE                    SEV       FIX
+  qs@6.11.0              CVE-2022-24999         HIGH      6.11.2
+  path-to-regexp@0.1.7   CVE-2024-45296         HIGH      0.1.8
+
+REMEDIATION PLAN
+
+1. Upgrade express 4.18.2 -> 4.21.2
+  Fixes: 3 vulnerabilities
+  PACKAGE                CVE                    SEV       FIX
+  qs@6.11.0              CVE-2022-24999         HIGH      6.11.2
+  path-to-regexp@0.1.7   CVE-2024-45296         HIGH      0.1.8
+
+  Dependency paths:
+    path: app -> api -> express -> qs
+    path: app -> api -> express -> path-to-regexp
+    ... more paths; use --format json for full list
+```
+
+Use `--format json` to keep the normal report and receive the same grouped
+data under the top-level `fixPlan` field.
+
+The dependency graph is always taken from cdxgen. If an exact parent upgrade
+cannot be resolved by the optional remediation stage, the plan falls back to
+the fixed version reported by OSV instead of parsing Composer or lockfiles.
 
 ### Scan a container image
 
@@ -137,6 +177,11 @@ docker run --rm wolfee --image nginx:latest
 wolfee --image nginx:1.27
 wolfee --image my-app:latest --platform linux/arm64
 wolfee --image my-app:latest --save-sbom my-app.cdx.json
+
+# Group transitive vulnerabilities by the direct dependency to upgrade
+wolfee scan ./my-app --format fix-plan
+# JSON reports include the same grouped data under "fixPlan"
+wolfee scan ./my-app --format json --output report.json
 
 # Tell base-image packages apart from your own (see below)
 wolfee --image my-app:latest --scout

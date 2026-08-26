@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"sca-go/cli/internal/sbomscan"
+	"github.com/shinigamikiko/wolfee-cli/internal/sbomscan"
 	"strings"
 )
 

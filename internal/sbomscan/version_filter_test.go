@@ -3,7 +3,7 @@ package sbomscan
 import (
 	"testing"
 
-	"sca-go/cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
 )
 
 func TestFilterVulnsByVersion(t *testing.T) {

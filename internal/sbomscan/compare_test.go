@@ -3,7 +3,7 @@ package sbomscan
 import (
 	"testing"
 
-	"sca-go/cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
 )
 
 func comp(purl, name, ver, scope string, vulns ...onlinescan.Vulnerability) ComponentReport {

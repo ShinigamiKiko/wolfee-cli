@@ -3,7 +3,7 @@ package sbomscan
 import (
 	"testing"
 
-	"sca-go/cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
 )
 
 func TestApplyLanguageRelevance_UsedGoModule(t *testing.T) {

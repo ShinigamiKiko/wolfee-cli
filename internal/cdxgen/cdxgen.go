@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sca-go/cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
 )
 
 type Options struct {
@@ -167,9 +167,8 @@ func GenerateImageSBOM(ctx context.Context, o Options) ([]byte, error) {
 	}
 
 	if o.SaveTo != "" {
-
-		if err := saveCopy(o.SaveTo, bom); err != nil && o.Logger != nil {
-			o.Logger.Warn("could not save SBOM to %s: %v", o.SaveTo, err)
+		if err := saveCopy(o.SaveTo, bom); err != nil {
+			return nil, fmt.Errorf("cdxgen: save SBOM: %w", err)
 		}
 	}
 	return bom, nil
@@ -177,7 +176,9 @@ func GenerateImageSBOM(ctx context.Context, o Options) ([]byte, error) {
 
 func saveCopy(dst string, data []byte) error {
 	if dir := filepath.Dir(dst); dir != "" {
-		_ = os.MkdirAll(dir, 0o755)
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
 	}
-	return os.WriteFile(dst, data, 0o644)
+	return os.WriteFile(dst, data, 0o600)
 }

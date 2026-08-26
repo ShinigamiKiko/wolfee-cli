@@ -3,8 +3,8 @@ package sbomscan
 import (
 	"testing"
 
-	"sca-go/cli/internal/reachability"
-	"sca-go/cli/internal/trivy"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/trivy"
 )
 
 func sampleTrivyReport() *trivy.Report {

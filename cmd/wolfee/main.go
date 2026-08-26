@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"sca-go/cli/internal/cli"
+	"github.com/shinigamikiko/wolfee-cli/internal/cli"
 )
 
 type exitCoder interface{ ExitCode() int }

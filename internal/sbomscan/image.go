@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/output"
-	"sca-go/cli/internal/reachability"
-	"sca-go/cli/internal/trivy"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/trivy"
 )
 
 type ImageOptions struct {

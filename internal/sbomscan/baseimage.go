@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"sca-go/cli/internal/trivy"
+	"github.com/shinigamikiko/wolfee-cli/internal/trivy"
 )
 
 const (

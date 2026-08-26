@@ -3,7 +3,7 @@ package sbomscan
 import (
 	"strings"
 
-	"sca-go/cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
 )
 
 const (

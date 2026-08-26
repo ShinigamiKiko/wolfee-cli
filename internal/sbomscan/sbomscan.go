@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"sca-go/cli/internal/onlinescan"
-	"sca-go/cli/internal/output"
-	"sca-go/cli/internal/reachability"
-	"sca-go/cli/internal/sbomscan/internal/purl"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/reachability"
+	"github.com/shinigamikiko/wolfee-cli/internal/sbomscan/internal/purl"
 )
 
 type Options struct {
@@ -292,6 +292,7 @@ func ScanBOM(ctx context.Context, o Options) (*Report, error) {
 
 	annotateDependencyPaths(r)
 	annotateRemediations(ctx, r, onlinescan.DefaultHTTPClient(), o.Logger)
+	r.FixPlan = BuildFixPlan(r)
 
 	seenCVE := map[string]struct{}{}
 	for _, c := range r.Components {

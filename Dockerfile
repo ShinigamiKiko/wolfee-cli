@@ -11,7 +11,7 @@
 #   - cdxgen  : cataloguing for project-path / --bom / --reachable.
 #   - atom / govulncheck : --reachable call-graph (degrade gracefully).
 
-FROM golang:1.22-bookworm AS go-builder
+FROM golang:1.25-bookworm AS go-builder
 WORKDIR /src
 COPY . .
 ARG VERSION=dev
@@ -19,8 +19,8 @@ ARG COMMIT=unknown
 RUN CGO_ENABLED=0 go build \
       -trimpath \
       -ldflags "-s -w \
-        -X sca-go/cli/internal/cli.Version=${VERSION} \
-        -X sca-go/cli/internal/cli.Commit=${COMMIT}" \
+      -X github.com/shinigamikiko/wolfee-cli/internal/cli.Version=${VERSION} \
+      -X github.com/shinigamikiko/wolfee-cli/internal/cli.Commit=${COMMIT}" \
       -o /out/wolfee \
       ./cmd/wolfee
 

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sca-go/cli/internal/output"
+	"github.com/shinigamikiko/wolfee-cli/internal/output"
 )
 
 type goListPkg struct {

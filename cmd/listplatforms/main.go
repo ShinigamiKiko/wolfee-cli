@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/shinigamikiko/wolfee-cli/internal/trivydb"
 	"net/http"
 	"os"
-	"sca-go/cli/internal/trivydb"
 )
 
 func main() {

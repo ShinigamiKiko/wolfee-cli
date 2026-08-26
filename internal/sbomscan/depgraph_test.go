@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"sca-go/cli/internal/onlinescan"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
 )
 
 func gnode(ref, name, ver string) ComponentReport {
@@ -120,6 +120,9 @@ func TestDependencyPathsCapped(t *testing.T) {
 
 	if got := pathsOf(r, "t"); len(got) != maxDepPaths {
 		t.Errorf("t routes: got %d want capped at %d", len(got), maxDepPaths)
+	}
+	if !r.Components[0].DependencyPathsTruncated {
+		t.Error("t routes should report truncation")
 	}
 }
 

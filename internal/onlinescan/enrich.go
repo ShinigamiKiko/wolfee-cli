@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"sca-go/cli/internal/onlinescan/feedcache"
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan/feedcache"
 )
 
 func Enrich(ctx context.Context, results []*ComponentResult, o Options) error {
