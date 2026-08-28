@@ -66,6 +66,23 @@ func (l *stderrLogger) Progress(done, total int, label string) {
 	fmt.Fprintf(os.Stderr, "\r  [%d/%d] %s          ", done, total, label)
 }
 
+const banner = `
+ __      __      _  ___  ___ ___ ___    ___ _    ___
+ \ \    / /___  | || __|| __| __| __|  / __| |  |_ _|
+  \ \/\/ // _ \ | || _| | _|| _|| _|  | (__| |__ | |
+   \_/\_/ \___/ |_||_|  |___|___|___|  \___|____|___|
+`
+
+// PrintBanner writes the WOLFEE CLI ASCII banner to stderr. It stays out of
+// stdout so JSON/SARIF/table output on stdout is never corrupted, and is
+// silent under --quiet.
+func PrintBanner(quiet bool) {
+	if quiet {
+		return
+	}
+	fmt.Fprint(os.Stderr, banner+"\n")
+}
+
 func LineWriter(emit func(string, ...any), prefix string) io.WriteCloser {
 	r, w := io.Pipe()
 	go func() {
