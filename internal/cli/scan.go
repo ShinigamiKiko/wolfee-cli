@@ -75,6 +75,8 @@ func runScan(ctx context.Context, args []string) error {
 		o.token = strings.TrimSpace(os.Getenv("WOLFEE_TOKEN"))
 	}
 
+	output.PrintBanner(o.quiet)
+
 	logger := output.NewLogger(o.quiet, o.debug)
 
 	var report *sbomscan.Report
