@@ -121,14 +121,28 @@ func (t Table) Render(w io.Writer, report any) error {
 			affected++
 		}
 	}
+
+	showLayer := anyLayerDigest(components)
+	// Non-image scans (filesystem / reachable / SBOM) list the full cdxgen
+	// inventory - every catalogued library, not just the vulnerable ones - so
+	// the operator sees exactly what was scanned. Image scans stay
+	// vulnerable-only: their SBOM carries the whole base OS + bundled binaries
+	// (hundreds of packages) and dumping all of it is noise.
+	showAll := !showLayer
+
 	if affected == 0 {
 		fmt.Fprintln(w, c.green("✓ No vulnerabilities or malware detected"))
 		fmt.Fprintln(w)
-		return nil
+		if !showAll {
+			return nil
+		}
 	}
 
-	fmt.Fprintln(w, c.bold("Findings"))
-	showLayer := anyLayerDigest(components)
+	if showAll {
+		fmt.Fprintln(w, c.bold(fmt.Sprintf("Components (%d catalogued by cdxgen)", components.Len())))
+	} else {
+		fmt.Fprintln(w, c.bold("Findings"))
+	}
 	showLang := anyLanguageRelevance(components)
 	fg := &grid{}
 	if showLayer {
@@ -142,13 +156,19 @@ func (t Table) Render(w io.Writer, report any) error {
 		// LANG the ecosystem language. Both are always shown here.
 		fg.add("PACKAGE", "VERSION", "ECO", "VULNS", "FLAGS", "TOXIC", "ORIGIN", "LANG")
 	}
+	// Vulnerable-first ordering is preserved by the earlier sort; in showAll
+	// mode the clean components simply trail after the affected ones.
+	total := affected
+	if showAll {
+		total = len(rows)
+	}
 	shown := 0
 	for _, r := range rows {
-		if r.rank == 0 {
+		if !showAll && r.rank == 0 {
 			break
 		}
 		if shown >= maxRows {
-			fg.add(fmt.Sprintf("... (%d more rows omitted; use --format json for full list)", affected-shown))
+			fg.add(fmt.Sprintf("... (%d more rows omitted; use --format json for full list)", total-shown))
 			break
 		}
 		comp := r.val
