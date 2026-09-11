@@ -12,33 +12,68 @@ import (
 type Logger interface {
 	Step(msg string)
 	Warn(format string, args ...any)
+	Error(format string, args ...any)
 	Debug(format string, args ...any)
 	Progress(done, total int, label string)
+	// TimeoutSeen reports whether any Step/Warn message mentioned a network
+	// timeout, so callers can flag the scan as incomplete.
+	TimeoutSeen() bool
 }
 
 type stderrLogger struct {
-	mu      sync.Mutex
-	quiet   bool
-	verbose bool
+	mu          sync.Mutex
+	quiet       bool
+	verbose     bool
+	timeoutSeen bool
 }
 
 func NewLogger(quiet, verbose bool) Logger {
 	return &stderrLogger{quiet: quiet, verbose: verbose}
 }
 
+// noteTimeout records whether a message looks like a network timeout. Callers
+// already hold l.mu.
+func (l *stderrLogger) noteTimeout(msg string) {
+	if strings.Contains(strings.ToLower(msg), "timeout") {
+		l.timeoutSeen = true
+	}
+}
+
+func (l *stderrLogger) TimeoutSeen() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.timeoutSeen
+}
+
 func (l *stderrLogger) Step(msg string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.noteTimeout(msg)
 	if l.quiet {
 		return
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	fmt.Fprintf(os.Stderr, "→ %s\n", msg)
 }
 
 func (l *stderrLogger) Warn(format string, args ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.noteTimeout(fmt.Sprintf(format, args...))
 	fmt.Fprintf(os.Stderr, "! "+format+"\n", args...)
+}
+
+// Error prints a bold-red line to stderr. It is never suppressed by --quiet:
+// an incomplete scan must always be visible.
+func (l *stderrLogger) Error(format string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	msg := fmt.Sprintf(format, args...)
+	useColor := os.Getenv("NO_COLOR") == ""
+	if useColor {
+		fmt.Fprintf(os.Stderr, "\x1b[1;31m%s\x1b[0m\n", msg)
+	} else {
+		fmt.Fprintln(os.Stderr, msg)
+	}
 }
 
 func (l *stderrLogger) Debug(format string, args ...any) {

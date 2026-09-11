@@ -60,9 +60,12 @@ type tComponent struct {
 	Toxic           tToxic
 }
 type tVuln struct {
-	Severity string
-	ID       string
-	CVE      string
+	Severity  string
+	ID        string
+	CVE       string
+	Reachable string
+	CallSite  string
+	CallLine  string
 }
 type tMalware struct {
 	Found     bool
@@ -118,6 +121,74 @@ func TestJSON_Render_RoundTrips(t *testing.T) {
 	}
 }
 
+func TestSARIF_Render_ExportsGoReachabilityTrace(t *testing.T) {
+	report := &tReport{
+		Components: []tComponent{{
+			System: "GO", Name: "example.org/vulnerable", Version: "v1.2.3",
+			Vulnerabilities: []tVuln{{
+				ID: "GO-2026-0001", Severity: "HIGH", Reachable: "reachable",
+				CallSite: "internal/handler.go:42", CallLine: "dangerous(input)",
+			}},
+		}},
+	}
+
+	var buf bytes.Buffer
+	if err := (SARIF{}).Render(&buf, report); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Runs []struct {
+			Results []struct {
+				Locations []struct {
+					PhysicalLocation struct {
+						ArtifactLocation struct {
+							URI string `json:"uri"`
+						} `json:"artifactLocation"`
+						Region struct {
+							StartLine int `json:"startLine"`
+						} `json:"region"`
+					} `json:"physicalLocation"`
+				} `json:"locations"`
+				CodeFlows []struct {
+					ThreadFlows []struct {
+						Locations []struct {
+							Location struct {
+								PhysicalLocation struct {
+									ArtifactLocation struct {
+										URI string `json:"uri"`
+									} `json:"artifactLocation"`
+									Region struct {
+										StartLine int `json:"startLine"`
+									} `json:"region"`
+								} `json:"physicalLocation"`
+								Message struct {
+									Text string `json:"text"`
+								} `json:"message"`
+							} `json:"location"`
+							Kinds []string `json:"kinds"`
+						} `json:"locations"`
+					} `json:"threadFlows"`
+				} `json:"codeFlows"`
+				Properties map[string]any `json:"properties"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	result := doc.Runs[0].Results[0]
+	if result.Properties["reachability"] != "reachable" {
+		t.Fatalf("reachability = %v", result.Properties["reachability"])
+	}
+	if got := result.Locations[0].PhysicalLocation.ArtifactLocation.URI; got != "internal/handler.go" {
+		t.Fatalf("location URI = %q", got)
+	}
+	if got := result.CodeFlows[0].ThreadFlows[0].Locations[0]; got.Kinds[0] != "call-site" ||
+		got.Location.PhysicalLocation.Region.StartLine != 42 || got.Location.Message.Text != "dangerous(input)" {
+		t.Fatalf("unexpected code flow: %+v", got)
+	}
+}
+
 func TestFixPlan_Render_OneLinePerVulnerability(t *testing.T) {
 	var buf bytes.Buffer
 	report := tFixPlanReport{Source: "fs:./app", FixPlan: &tFixPlan{Groups: []tFixGroup{{
@@ -170,8 +241,14 @@ func TestTable_Render_HighlightsAffectedFirst(t *testing.T) {
 	if !(mal < hi) {
 		t.Errorf("expected MALWARE before HIGH; got mal=%d hi=%d\n%s", mal, hi, out)
 	}
-	if strings.Contains(out, "  clean  ") {
-		t.Errorf("clean component must not appear in findings:\n%s", out)
+	// Non-image scans list the full cdxgen inventory, so the clean component
+	// must appear too - but after the vulnerable ones (vulnerable-first order).
+	clean := strings.Index(out, "clean")
+	if clean < 0 {
+		t.Errorf("clean component must appear in the full component inventory:\n%s", out)
+	}
+	if clean > 0 && !(hi < clean) {
+		t.Errorf("expected clean component after vulnerable ones; got hi=%d clean=%d\n%s", hi, clean, out)
 	}
 	if !strings.Contains(out, "MALWARE") {
 		t.Error("MALWARE flag missing in table output")

@@ -198,6 +198,8 @@ func runScan(ctx context.Context, args []string) error {
 		return fmt.Errorf("write report: %w", err)
 	}
 
+	warnIfIncomplete(logger, report)
+
 	if o.server != "" {
 		// Send the enriched report rather than the raw catalogue. It carries the
 		// same components plus everything this scan established — severities,
@@ -240,6 +242,36 @@ func runScan(ctx context.Context, args []string) error {
 		return &exitError{code: exit, msg: fmt.Sprintf("findings exceed --fail-on=%s threshold", o.failOn)}
 	}
 	return nil
+}
+
+// warnIfIncomplete prints a loud red ERROR line when the scan could not fetch
+// all of its data because of a network timeout. A timeout leaves components
+// with an empty vulnerability list, so a clean-looking report may actually be
+// under-reporting - the operator must know the result is not authoritative.
+func warnIfIncomplete(logger output.Logger, report *sbomscan.Report) {
+	timedOut := logger.TimeoutSeen()
+
+	failed := 0
+	if report != nil {
+		for i := range report.Components {
+			if e := report.Components[i].Error; e != "" {
+				failed++
+				if strings.Contains(strings.ToLower(e), "timeout") {
+					timedOut = true
+				}
+			}
+		}
+	}
+
+	if !timedOut {
+		return
+	}
+
+	if failed > 0 {
+		logger.Error("ERROR: scan incomplete! timeout detected - %d component(s) could not be checked; results may be missing vulnerabilities", failed)
+	} else {
+		logger.Error("ERROR: scan incomplete! timeout detected; some enrichment data (e.g. EPSS/OSV) is missing")
+	}
 }
 
 func obtainSBOM(ctx context.Context, log output.Logger, o *scanOpts) ([]byte, string, error) {

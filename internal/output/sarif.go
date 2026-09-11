@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -51,16 +52,45 @@ type sarifResult struct {
 	Level      string          `json:"level"`
 	Message    sarifMessage    `json:"message"`
 	Locations  []sarifLocation `json:"locations,omitempty"`
+	CodeFlows  []sarifCodeFlow `json:"codeFlows,omitempty"`
 	Properties map[string]any  `json:"properties,omitempty"`
 }
 
 type sarifLocation struct {
 	LogicalLocations []sarifLogicalLocation `json:"logicalLocations"`
+	PhysicalLocation *sarifPhysicalLocation `json:"physicalLocation,omitempty"`
+	Message          *sarifMessage          `json:"message,omitempty"`
 }
 
 type sarifLogicalLocation struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
+}
+
+type sarifPhysicalLocation struct {
+	ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
+	Region           sarifRegion           `json:"region"`
+}
+
+type sarifArtifactLocation struct {
+	URI string `json:"uri"`
+}
+
+type sarifRegion struct {
+	StartLine int `json:"startLine"`
+}
+
+type sarifCodeFlow struct {
+	ThreadFlows []sarifThreadFlow `json:"threadFlows"`
+}
+
+type sarifThreadFlow struct {
+	Locations []sarifThreadFlowLocation `json:"locations"`
+}
+
+type sarifThreadFlowLocation struct {
+	Location sarifLocation `json:"location"`
+	Kinds    []string      `json:"kinds,omitempty"`
 }
 
 func (SARIF) Render(w io.Writer, report any) error {
@@ -88,7 +118,7 @@ func (SARIF) Render(w io.Writer, report any) error {
 		pkgLabel := fmt.Sprintf("%s/%s@%s", pkgEco, pkgName, pkgVer)
 
 		origin := stringField(c, "Origin")
-		resultProps := func() map[string]any {
+		packageProps := func() map[string]any {
 			if origin == "" {
 				return nil
 			}
@@ -115,7 +145,7 @@ func (SARIF) Render(w io.Writer, report any) error {
 				Level:      "error",
 				Message:    sarifMessage{Text: fmt.Sprintf("Malicious package %s - %s", pkgLabel, stringField(mal, "Summary"))},
 				Locations:  []sarifLocation{{LogicalLocations: []sarifLogicalLocation{{Name: pkgLabel, Kind: "package"}}}},
-				Properties: resultProps(),
+				Properties: packageProps(),
 			})
 		}
 
@@ -136,8 +166,9 @@ func (SARIF) Render(w io.Writer, report any) error {
 				RuleID:     id,
 				Level:      sarifLevel(stringField(vv, "Severity")),
 				Message:    sarifMessage{Text: vulnMessage(id, pkgLabel, vv)},
-				Locations:  []sarifLocation{{LogicalLocations: []sarifLogicalLocation{{Name: pkgLabel, Kind: "package"}}}},
-				Properties: resultProps(),
+				Locations:  buildLocations(pkgLabel, vv),
+				CodeFlows:  buildCodeFlows(vv),
+				Properties: mergeProperties(packageProps(), resultProps(vv)),
 			})
 		}
 	}
@@ -161,6 +192,75 @@ func (SARIF) Render(w io.Writer, report any) error {
 		Results: results,
 	}}
 	return encodeJSON(w, doc)
+}
+
+func resultProps(v reflect.Value) map[string]any {
+	props := map[string]any{}
+	if reachable := stringField(v, "Reachable"); reachable != "" {
+		props["reachability"] = reachable
+	}
+	return props
+}
+
+func mergeProperties(groups ...map[string]any) map[string]any {
+	merged := map[string]any{}
+	for _, group := range groups {
+		for key, value := range group {
+			merged[key] = value
+		}
+	}
+	if len(merged) == 0 {
+		return nil
+	}
+	return merged
+}
+
+func buildLocations(pkgLabel string, v reflect.Value) []sarifLocation {
+	location := sarifLocation{
+		LogicalLocations: []sarifLogicalLocation{{Name: pkgLabel, Kind: "package"}},
+	}
+	file, line := parseCallSite(stringField(v, "CallSite"))
+	if file != "" && line > 0 {
+		location.PhysicalLocation = &sarifPhysicalLocation{
+			ArtifactLocation: sarifArtifactLocation{URI: file},
+			Region:           sarifRegion{StartLine: line},
+		}
+	}
+	return []sarifLocation{location}
+}
+
+func buildCodeFlows(v reflect.Value) []sarifCodeFlow {
+	file, line := parseCallSite(stringField(v, "CallSite"))
+	if file == "" || line <= 0 {
+		return nil
+	}
+	message := stringField(v, "CallLine")
+	if message == "" {
+		message = fmt.Sprintf("vulnerable call site: %s:%d", file, line)
+	}
+	return []sarifCodeFlow{{ThreadFlows: []sarifThreadFlow{{Locations: []sarifThreadFlowLocation{{
+		Location: sarifLocation{
+			PhysicalLocation: &sarifPhysicalLocation{
+				ArtifactLocation: sarifArtifactLocation{URI: file},
+				Region:           sarifRegion{StartLine: line},
+			},
+			Message: &sarifMessage{Text: message},
+		},
+		Kinds: []string{"call-site"},
+	}}}}}}
+}
+
+func parseCallSite(callSite string) (string, int) {
+	callSite = strings.TrimSpace(callSite)
+	separator := strings.LastIndex(callSite, ":")
+	if separator <= 0 || separator == len(callSite)-1 {
+		return "", 0
+	}
+	line, err := strconv.Atoi(callSite[separator+1:])
+	if err != nil || line <= 0 {
+		return "", 0
+	}
+	return callSite[:separator], line
 }
 
 func buildRule(v reflect.Value) sarifRule {
