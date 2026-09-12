@@ -45,6 +45,8 @@ type Vulnerability struct {
 
 	CallLine string `json:"callLine,omitempty"`
 
+	Trace []TraceFrame `json:"trace,omitempty"`
+
 	VulnerableSymbols []VulnImport `json:"vulnerableSymbols,omitempty"`
 
 	SeveritySource string `json:"severitySource,omitempty"`
@@ -60,6 +62,16 @@ type Vulnerability struct {
 	// package resolves to a fixed release. Computed online via deps.dev
 	// (resolved dependency graphs) cross-checked against OSV.dev.
 	Remediation *Remediation `json:"remediation,omitempty"`
+}
+
+// TraceFrame identifies one positioned frame in a govulncheck call chain.
+type TraceFrame struct {
+	Module     string `json:"module,omitempty"`
+	Package    string `json:"package,omitempty"`
+	Function   string `json:"function,omitempty"`
+	File       string `json:"file,omitempty"`
+	Line       int    `json:"line,omitempty"`
+	FirstParty bool   `json:"firstParty,omitempty"`
 }
 
 // Remediation describes the actionable upgrade for a (usually transitive)

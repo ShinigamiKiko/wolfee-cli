@@ -1,6 +1,10 @@
 package reachability
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/shinigamikiko/wolfee-cli/internal/onlinescan"
+)
 
 type State string
 
@@ -33,6 +37,9 @@ type Result struct {
 	CallSites map[string]string
 
 	CallLines map[string]string
+
+	// Traces are stored in govulncheck's native order: innermost frame first.
+	Traces map[string][]onlinescan.TraceFrame
 
 	ImportSites map[string]string
 
@@ -127,6 +134,18 @@ func (r *Result) VulnCallLine(ids ...string) string {
 		}
 	}
 	return ""
+}
+
+func (r *Result) VulnTrace(ids ...string) []onlinescan.TraceFrame {
+	if r == nil {
+		return nil
+	}
+	for _, id := range ids {
+		if trace := r.Traces[normID(id)]; len(trace) > 0 {
+			return trace
+		}
+	}
+	return nil
 }
 
 func (r *Result) ImportSite(purlNoVersion string) string {

@@ -66,6 +66,13 @@ type tVuln struct {
 	Reachable string
 	CallSite  string
 	CallLine  string
+	Trace     []tTraceFrame
+}
+type tTraceFrame struct {
+	Function   string
+	File       string
+	Line       int
+	FirstParty bool
 }
 type tMalware struct {
 	Found     bool
@@ -186,6 +193,65 @@ func TestSARIF_Render_ExportsGoReachabilityTrace(t *testing.T) {
 	if got := result.CodeFlows[0].ThreadFlows[0].Locations[0]; got.Kinds[0] != "call-site" ||
 		got.Location.PhysicalLocation.Region.StartLine != 42 || got.Location.Message.Text != "dangerous(input)" {
 		t.Fatalf("unexpected code flow: %+v", got)
+	}
+}
+
+func TestSARIF_Render_ExportsFullGoTraceInSourceOrder(t *testing.T) {
+	report := &tReport{Components: []tComponent{{
+		System: "GO", Name: "example.org/vulnerable", Version: "v1.2.3",
+		Vulnerabilities: []tVuln{{ID: "GO-2026-0001", Reachable: "reachable", CallSite: "internal/handler.go:42", Trace: []tTraceFrame{
+			{Function: "vulnerable", File: "vendor/lib.go", Line: 9},
+			{Function: "handler", File: "internal/handler.go", Line: 42},
+			{Function: "main", File: "cmd/app.go", Line: 18},
+		}}},
+	}}}
+
+	var buf bytes.Buffer
+	if err := (SARIF{}).Render(&buf, report); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Runs []struct {
+			Results []struct {
+				CodeFlows []struct {
+					ThreadFlows []struct {
+						Locations []struct {
+							Location struct {
+								PhysicalLocation struct {
+									ArtifactLocation struct {
+										URI string `json:"uri"`
+									} `json:"artifactLocation"`
+									Region struct {
+										StartLine int `json:"startLine"`
+									} `json:"region"`
+								} `json:"physicalLocation"`
+							} `json:"location"`
+							Kinds []string `json:"kinds"`
+						} `json:"locations"`
+					} `json:"threadFlows"`
+				} `json:"codeFlows"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	locations := doc.Runs[0].Results[0].CodeFlows[0].ThreadFlows[0].Locations
+	if len(locations) != 3 {
+		t.Fatalf("got %d trace locations, want 3", len(locations))
+	}
+	want := []struct {
+		file string
+		line int
+		kind string
+	}{
+		{"cmd/app.go", 18, "entrypoint"}, {"internal/handler.go", 42, "call"}, {"vendor/lib.go", 9, "vulnerable-function"},
+	}
+	for i, want := range want {
+		got := locations[i]
+		if got.Location.PhysicalLocation.ArtifactLocation.URI != want.file || got.Location.PhysicalLocation.Region.StartLine != want.line || got.Kinds[0] != want.kind {
+			t.Errorf("location %d = %+v, want %s:%d (%s)", i, got, want.file, want.line, want.kind)
+		}
 	}
 }
 

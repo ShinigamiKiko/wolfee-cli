@@ -199,6 +199,12 @@ func resultProps(v reflect.Value) map[string]any {
 	if reachable := stringField(v, "Reachable"); reachable != "" {
 		props["reachability"] = reachable
 	}
+	if callSite := stringField(v, "CallSite"); callSite != "" {
+		props["callSite"] = callSite
+	}
+	if callLine := stringField(v, "CallLine"); callLine != "" {
+		props["callLine"] = callLine
+	}
 	return props
 }
 
@@ -230,6 +236,39 @@ func buildLocations(pkgLabel string, v reflect.Value) []sarifLocation {
 }
 
 func buildCodeFlows(v reflect.Value) []sarifCodeFlow {
+	trace := traceFramesField(v, "Trace")
+	locations := make([]sarifThreadFlowLocation, 0, len(trace))
+	for i := len(trace) - 1; i >= 0; i-- {
+		frame := trace[i]
+		if frame.File == "" || frame.Line <= 0 {
+			continue
+		}
+		kind := "call"
+		if len(locations) == 0 {
+			kind = "entrypoint"
+		}
+		message := frame.Function
+		if message == "" {
+			message = fmt.Sprintf("call frame: %s:%d", frame.File, frame.Line)
+		}
+		locations = append(locations, sarifThreadFlowLocation{
+			Location: sarifLocation{
+				PhysicalLocation: &sarifPhysicalLocation{
+					ArtifactLocation: sarifArtifactLocation{URI: frame.File},
+					Region:           sarifRegion{StartLine: frame.Line},
+				},
+				Message: &sarifMessage{Text: message},
+			},
+			Kinds: []string{kind},
+		})
+	}
+	if len(locations) > 1 {
+		locations[len(locations)-1].Kinds = []string{"vulnerable-function"}
+	}
+	if len(locations) > 0 {
+		return []sarifCodeFlow{{ThreadFlows: []sarifThreadFlow{{Locations: locations}}}}
+	}
+
 	file, line := parseCallSite(stringField(v, "CallSite"))
 	if file == "" || line <= 0 {
 		return nil
