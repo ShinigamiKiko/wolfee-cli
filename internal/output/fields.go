@@ -56,6 +56,44 @@ func stringMatrixField(v reflect.Value, n string) [][]string {
 	return out
 }
 
+type traceField struct {
+	File       string
+	Line       int
+	Function   string
+	FirstParty bool
+}
+
+func traceFramesField(v reflect.Value, n string) []traceField {
+	f := v.FieldByName(n)
+	if !f.IsValid() || f.Kind() != reflect.Slice {
+		return nil
+	}
+	out := make([]traceField, 0, f.Len())
+	for i := 0; i < f.Len(); i++ {
+		frame := f.Index(i)
+		if frame.Kind() == reflect.Ptr {
+			if frame.IsNil() {
+				continue
+			}
+			frame = frame.Elem()
+		}
+		if frame.Kind() != reflect.Struct {
+			continue
+		}
+		out = append(out, traceField{
+			File: stringField(frame, "File"), Line: intField(frame, "Line"),
+			Function:   stringField(frame, "Function"),
+			FirstParty: traceBoolField(frame, "FirstParty"),
+		})
+	}
+	return out
+}
+
+func traceBoolField(v reflect.Value, n string) bool {
+	f := v.FieldByName(n)
+	return f.IsValid() && f.Kind() == reflect.Bool && f.Bool()
+}
+
 func relevantField(v reflect.Value, n string) (value bool, known bool) {
 	f := v.FieldByName(n)
 	if !f.IsValid() || f.Kind() != reflect.Ptr || f.IsNil() {

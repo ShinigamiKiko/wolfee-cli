@@ -49,6 +49,13 @@ func TestParseGovulncheck(t *testing.T) {
 	if got := res.GOSeverity["GO-2022-0001"]; got != "LOW" {
 		t.Errorf("GO-2022-0001 severity: got %q want LOW", got)
 	}
+	trace := res.VulnTrace("CVE-2021-38561")
+	if len(trace) != 2 || trace[0].Function != "Parse" || trace[1].Function != "main" {
+		t.Fatalf("trace = %+v, want innermost-first Parse -> main", trace)
+	}
+	if trace[0].FirstParty || trace[1].FirstParty {
+		t.Errorf("unexpected first-party flags: %+v", trace)
+	}
 }
 
 func TestLookupStrongestWins(t *testing.T) {

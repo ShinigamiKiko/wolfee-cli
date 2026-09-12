@@ -190,6 +190,7 @@ func parseGovulncheck(r io.Reader, dir string, res *Result, o Options) (reachabl
 	seen := map[string]bool{}
 	callSites := map[string]string{}
 	callLines := map[string]string{}
+	traces := map[string][]onlinescan.TraceFrame{}
 	calledMod := map[string]string{}
 	osvModules := map[string][]string{}
 	severity := map[string]string{}
@@ -221,6 +222,19 @@ func parseGovulncheck(r io.Reader, dir string, res *Result, o Options) (reachabl
 			seen[id] = true
 			if len(m.Finding.Trace) > 0 && m.Finding.Trace[0].Function != "" {
 				called[id] = true
+				if _, exists := traces[normID(id)]; !exists {
+					for _, fr := range m.Finding.Trace {
+						frame := onlinescan.TraceFrame{
+							Module: fr.Module, Package: fr.Package, Function: fr.Function,
+							FirstParty: isFirstPartyFrame(fr, res),
+						}
+						if fr.Position != nil {
+							frame.File = fr.Position.Filename
+							frame.Line = fr.Position.Line
+						}
+						traces[normID(id)] = append(traces[normID(id)], frame)
+					}
+				}
 
 				if calledMod[id] == "" {
 					for _, fr := range m.Finding.Trace {
@@ -300,6 +314,18 @@ func parseGovulncheck(r io.Reader, dir string, res *Result, o Options) (reachabl
 					}
 				}
 			}
+			if trace := traces[normID(id)]; len(trace) > 0 {
+				if res.Traces == nil {
+					res.Traces = map[string][]onlinescan.TraceFrame{}
+				}
+				res.Traces[normID(id)] = trace
+				for _, a := range aliases[id] {
+					nid := normID(a)
+					if len(res.Traces[nid]) == 0 {
+						res.Traces[nid] = trace
+					}
+				}
+			}
 		} else {
 			unreachable++
 		}
@@ -316,6 +342,13 @@ func parseGovulncheck(r io.Reader, dir string, res *Result, o Options) (reachabl
 		res.GOSeverity[id] = sev
 	}
 	return reachable, unreachable, nil
+}
+
+func isFirstPartyFrame(fr gvkFrame, res *Result) bool {
+	if fr.Position == nil || fr.Position.Filename == "" || fr.Module == "stdlib" {
+		return false
+	}
+	return !res.HaveModuleUsage || !res.Modules[fr.Module] || fr.Module == res.MainModule
 }
 
 func gvkExtractSeverity(osv *gvkOSV) string {

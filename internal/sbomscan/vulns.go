@@ -162,6 +162,9 @@ func dedupeVulns(vulns []onlinescan.Vulnerability) []onlinescan.Vulnerability {
 			if v.CallLine == "" {
 				v.CallLine = prev.CallLine
 			}
+			if len(v.Trace) == 0 {
+				v.Trace = prev.Trace
+			}
 			prev = v
 		}
 		if reachRank(v.Reachable) < reachRank(prev.Reachable) {
@@ -170,6 +173,9 @@ func dedupeVulns(vulns []onlinescan.Vulnerability) []onlinescan.Vulnerability {
 		if prev.CallSite == "" {
 			prev.CallSite = v.CallSite
 			prev.CallLine = v.CallLine
+		}
+		if len(prev.Trace) == 0 {
+			prev.Trace = v.Trace
 		}
 
 		seen := map[string]bool{strings.ToUpper(prev.ID): true}

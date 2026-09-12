@@ -61,6 +61,7 @@ func applyReachability(cr *ComponentReport, oracle *reachability.Result) {
 			v.Reachable = string(st)
 			v.CallSite = oracle.VulnCallSite(ids...)
 			v.CallLine = oracle.VulnCallLine(ids...)
+			v.Trace = oracle.VulnTrace(ids...)
 		case reachability.StateUnreachable:
 			v.Reachable = string(st)
 
@@ -101,6 +102,7 @@ func injectGovulncheckFindings(components *[]ComponentReport, oracle *reachabili
 				Reachable: string(reachability.StateReachable),
 				CallSite:  oracle.VulnCallSite(goID),
 				CallLine:  oracle.VulnCallLine(goID),
+				Trace:     oracle.VulnTrace(goID),
 			})
 		}
 		cr.TopSeverity, cr.VulnCount = topAndCount(cr.Vulnerabilities)
@@ -137,6 +139,7 @@ func injectGovulncheckFindings(components *[]ComponentReport, oracle *reachabili
 			Reachable: string(reachability.StateReachable),
 			CallSite:  oracle.VulnCallSite(goID),
 			CallLine:  oracle.VulnCallLine(goID),
+			Trace:     oracle.VulnTrace(goID),
 		})
 	}
 	stdlib.Vulnerabilities = dedupeVulns(stdlib.Vulnerabilities)
