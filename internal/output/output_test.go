@@ -31,6 +31,8 @@ type tFixGroup struct {
 }
 type tFixPackage struct {
 	Package         string
+	License         string
+	LicenseRisk     string
 	Vulnerabilities []tFixVulnerability
 	DependencyPaths [][]string
 }
@@ -42,10 +44,13 @@ type tFixVulnerability struct {
 }
 type tTotals struct {
 	Components, Scanned, Skipped, WithVulns, Malware, Toxic int
+	LicenseHigh, LicenseMedium                              int
 	CRITICAL, HIGH, MEDIUM, LOW                             int
 }
 type tComponent struct {
 	PURL            string
+	License         string
+	LicenseRisk     string
 	System          string
 	Name            string
 	Version         string

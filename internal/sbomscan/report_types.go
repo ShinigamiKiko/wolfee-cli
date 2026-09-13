@@ -39,6 +39,8 @@ type Totals struct {
 	PackageUnused int `json:"packageUnused,omitempty"`
 	Malware       int `json:"malware"`
 	Toxic         int `json:"toxic"`
+	LicenseHigh   int `json:"licenseHigh"`
+	LicenseMedium int `json:"licenseMedium"`
 	KEV           int `json:"kev"`
 	PoC           int `json:"poc"`
 	CRITICAL      int `json:"CRITICAL"`
@@ -204,6 +206,10 @@ type ComponentReport struct {
 	Hashes []Hash `json:"hashes,omitempty"`
 
 	Licenses []LicenseChoice `json:"licenses,omitempty"`
+	// License is the flattened, human-readable license list; LicenseRisk is
+	// high / medium / low / unknown for production use (see licenses.go).
+	License     string `json:"license,omitempty"`
+	LicenseRisk string `json:"licenseRisk,omitempty"`
 
 	Occurrences []string `json:"occurrences,omitempty"`
 

@@ -121,6 +121,10 @@ func MergeSourceVulns(image, source *Report, reach *reachability.Result) {
 				ic.Scope = sc.Scope
 			}
 
+			// cdxgen's license data for the source tree is richer than trivy's.
+			if len(sc.Licenses) > 0 {
+				ic.Licenses = sc.Licenses
+			}
 			if len(ic.DependencyPaths) == 0 {
 				ic.DependencyPaths = sc.DependencyPaths
 			}
@@ -140,7 +144,9 @@ func MergeSourceVulns(image, source *Report, reach *reachability.Result) {
 	}
 	markImageLibs(image.Components)
 	filterVulnsByVersion(image.Components)
+	annotateLicenses(image.Components)
 	computeImageTotals(image, reach, true)
+	countLicenseTotals(image)
 }
 
 func unionVulns(into, extra []onlinescan.Vulnerability) []onlinescan.Vulnerability {

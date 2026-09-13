@@ -63,6 +63,7 @@ func GenerateFilesystemSBOM(ctx context.Context, dir string, o Options) ([]byte,
 	}
 
 	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = licenseEnv()
 	if o.Logger != nil {
 		lw := output.LineWriter(o.Logger.Debug, "[cdxgen] ")
 		defer lw.Close()
@@ -88,6 +89,18 @@ func GenerateFilesystemSBOM(ctx context.Context, dir string, o Options) ([]byte,
 		}
 	}
 	return bom, nil
+}
+
+// licenseEnv enables cdxgen's registry license lookup (npm, PyPI, Go, Maven,
+// ...) so every component carries its license. Without FETCH_LICENSE=true most
+// ecosystems come back with no license at all. An explicit value set by the
+// user (e.g. FETCH_LICENSE=false for offline runs) is respected.
+func licenseEnv() []string {
+	env := os.Environ()
+	if _, set := os.LookupEnv("FETCH_LICENSE"); !set {
+		env = append(env, "FETCH_LICENSE=true")
+	}
+	return env
 }
 
 func resolveBin(explicit string) (string, error) {
@@ -145,6 +158,7 @@ func GenerateImageSBOM(ctx context.Context, o Options) ([]byte, error) {
 	}
 
 	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = licenseEnv()
 
 	if o.Logger != nil {
 		cmd.Stderr = output.LineWriter(o.Logger.Debug, "[cdxgen] ")

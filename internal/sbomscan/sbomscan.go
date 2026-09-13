@@ -278,6 +278,7 @@ func ScanBOM(ctx context.Context, o Options) (*Report, error) {
 			if cr.Type == "" {
 				cr.Type = strings.ToLower(cr.System)
 			}
+			cr.License, cr.LicenseRisk = summarizeLicenses(cr.Licenses)
 			cr.TopSeverity, cr.VulnCount = topAndCount(res.Vulnerabilities)
 			applyReachability(&cr, o.Reachability)
 			cr.Vulnerabilities = dedupeVulns(cr.Vulnerabilities)
@@ -363,6 +364,7 @@ func ScanBOM(ctx context.Context, o Options) (*Report, error) {
 		}
 		r.Totals.Scanned++
 	}
+	countLicenseTotals(r)
 
 	return r, nil
 }
