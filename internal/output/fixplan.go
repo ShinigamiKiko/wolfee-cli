@@ -20,13 +20,19 @@ func (f FixPlan) Render(w io.Writer, report any) error {
 	if v.Kind() != reflect.Struct {
 		return fmt.Errorf("fix-plan: unexpected report type %T", report)
 	}
+	c := newColors(!f.NoColor && os.Getenv("NO_COLOR") == "")
 	plan := indirectField(v, "FixPlan")
 	if !plan.IsValid() {
-		_, err := fmt.Fprintln(w, "No remediation plan available.")
-		return err
+		// No vulnerabilities to remediate, but license risks still need to be
+		// reported - they are findings of their own.
+		if _, err := fmt.Fprintln(w, "No remediation plan available."); err != nil {
+			return err
+		}
+		fmt.Fprintln(w)
+		renderLicenseRisks(w, c, fieldSlice(v, "Components"))
+		return nil
 	}
 
-	c := newColors(!f.NoColor && os.Getenv("NO_COLOR") == "")
 	fmt.Fprintln(w, c.bold("FIX PLAN"))
 	if source := stringField(v, "Source"); source != "" {
 		fmt.Fprintf(w, "%s %s\n", c.bold("Source:"), source)

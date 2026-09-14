@@ -86,43 +86,107 @@ func licenseChoiceLabel(l LicenseChoice) string {
 	return strings.TrimSpace(l.License.Name)
 }
 
-var (
-	reOr   = regexp.MustCompile(`(?i)\s+or\s+|\s*/\s*`)
-	reAnd  = regexp.MustCompile(`(?i)\s+and\s+`)
-	reWith = regexp.MustCompile(`(?i)\s+with\s+`)
-)
+var reLicenseToken = regexp.MustCompile(`[()/]|[^\s()/]+`)
 
-// classifyLicenseExpression handles SPDX expressions: OR takes the least risky
-// alternative, AND the most risky term.
+// classifyLicenseExpression evaluates an SPDX expression with its grouping
+// intact: OR takes the least risky alternative, AND the most risky term, AND
+// binds tighter than OR, and parentheses override both. "/" is accepted as OR
+// (common in non-SPDX metadata such as "MIT/GPL-2.0").
 func classifyLicenseExpression(expr string) string {
-	expr = strings.NewReplacer("(", " ", ")", " ").Replace(expr)
-	best := ""
-	for _, alt := range reOr.Split(expr, -1) {
-		worst := ""
-		for _, term := range reAnd.Split(alt, -1) {
-			term = strings.TrimSpace(term)
-			if term == "" {
-				continue
-			}
-			if r := classifyLicenseTerm(term); licenseRiskRank(r) > licenseRiskRank(worst) {
-				worst = r
-			}
+	p := &licenseExprParser{tokens: reLicenseToken.FindAllString(expr, -1)}
+	risk := p.parseOr()
+	// Unbalanced ")" or other leftovers: evaluate the rest conservatively.
+	for p.pos < len(p.tokens) {
+		p.pos++
+		if r := p.parseOr(); licenseRiskRank(r) > licenseRiskRank(risk) {
+			risk = r
 		}
-		if worst == "" {
+	}
+	return risk
+}
+
+type licenseExprParser struct {
+	tokens []string
+	pos    int
+}
+
+func (p *licenseExprParser) peekOp(op string) bool {
+	if p.pos >= len(p.tokens) {
+		return false
+	}
+	t := p.tokens[p.pos]
+	if op == "OR" && t == "/" {
+		return true
+	}
+	return strings.EqualFold(t, op)
+}
+
+func (p *licenseExprParser) parseOr() string {
+	best := p.parseAnd()
+	for p.peekOp("OR") {
+		p.pos++
+		r := p.parseAnd()
+		if r == "" {
 			continue
 		}
-		if best == "" || licenseRiskRank(worst) < licenseRiskRank(best) {
-			best = worst
+		if best == "" || licenseRiskRank(r) < licenseRiskRank(best) {
+			best = r
 		}
 	}
 	return best
 }
 
-func classifyLicenseTerm(term string) string {
-	base, exception := term, ""
-	if parts := reWith.Split(term, 2); len(parts) == 2 {
-		base, exception = parts[0], parts[1]
+func (p *licenseExprParser) parseAnd() string {
+	worst := p.parseAtom()
+	for p.peekOp("AND") {
+		p.pos++
+		if r := p.parseAtom(); licenseRiskRank(r) > licenseRiskRank(worst) {
+			worst = r
+		}
 	}
+	return worst
+}
+
+func (p *licenseExprParser) parseAtom() string {
+	if p.pos >= len(p.tokens) {
+		return ""
+	}
+	if p.tokens[p.pos] == "(" {
+		p.pos++
+		r := p.parseOr()
+		if p.pos < len(p.tokens) && p.tokens[p.pos] == ")" {
+			p.pos++
+		}
+		return r
+	}
+	// A term is every word up to the next operator or parenthesis, so
+	// free-form names like "GNU General Public License v3" stay together.
+	base := p.words()
+	exception := ""
+	if p.peekOp("WITH") {
+		p.pos++
+		exception = p.words()
+	}
+	if base == "" {
+		return ""
+	}
+	return classifyLicenseTerm(base, exception)
+}
+
+func (p *licenseExprParser) words() string {
+	var parts []string
+	for p.pos < len(p.tokens) {
+		t := p.tokens[p.pos]
+		if t == "(" || t == ")" || p.peekOp("OR") || p.peekOp("AND") || p.peekOp("WITH") {
+			break
+		}
+		parts = append(parts, t)
+		p.pos++
+	}
+	return strings.Join(parts, " ")
+}
+
+func classifyLicenseTerm(base, exception string) string {
 	risk := classifyLicenseID(base)
 	// GPL + linking exception (Classpath, GCC runtime, ...) behaves like weak copyleft.
 	if risk == LicenseRiskHigh && exception != "" {

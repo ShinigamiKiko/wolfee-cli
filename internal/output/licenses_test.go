@@ -103,6 +103,28 @@ func TestSARIF_Render_Licenses(t *testing.T) {
 	}
 }
 
+func TestFixPlan_Render_LicenseRisksWithoutPlan(t *testing.T) {
+	type report struct {
+		Source     string
+		FixPlan    *tFixPlan
+		Components []tComponent
+	}
+	r := report{Components: []tComponent{
+		{Name: "gpl-lib", Version: "1.0.0", System: "NPM", License: "GPL-3.0-only", LicenseRisk: "high"},
+	}}
+	var buf bytes.Buffer
+	if err := (FixPlan{NoColor: true}).Render(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "No remediation plan available.") {
+		t.Errorf("expected the no-plan notice:\n%s", out)
+	}
+	if !strings.Contains(out, "License risks") || !strings.Contains(out, "gpl-lib@1.0.0") {
+		t.Errorf("license risks must be rendered even without a remediation plan:\n%s", out)
+	}
+}
+
 func TestFixPlan_Render_License(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	var buf bytes.Buffer
