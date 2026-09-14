@@ -30,6 +30,8 @@ type FixPlanGroup struct {
 type FixPlanPackage struct {
 	Package                  string                 `json:"package"`
 	PURL                     string                 `json:"purl,omitempty"`
+	License                  string                 `json:"license,omitempty"`
+	LicenseRisk              string                 `json:"licenseRisk,omitempty"`
 	Vulnerabilities          []FixPlanVulnerability `json:"vulnerabilities"`
 	DependencyPaths          [][]string             `json:"dependencyPaths,omitempty"`
 	DependencyPathsTruncated bool                   `json:"dependencyPathsTruncated,omitempty"`
@@ -98,6 +100,7 @@ func BuildFixPlan(r *Report) *FixPlan {
 				pkg := groupPackages[groupKey][pkgKey]
 				if pkg == nil {
 					pkg = &FixPlanPackage{Package: pkgLabel(c.Name, c.Version), PURL: c.PURL,
+						License: c.License, LicenseRisk: c.LicenseRisk,
 						DependencyPaths: c.DependencyPaths, DependencyPathsTruncated: c.DependencyPathsTruncated}
 					groupPackages[groupKey][pkgKey] = pkg
 					group.Packages = append(group.Packages, *pkg)
@@ -121,6 +124,7 @@ func BuildFixPlan(r *Report) *FixPlan {
 			pkg := unresolved[pkgKey]
 			if pkg == nil {
 				pkg = &FixPlanPackage{Package: pkgLabel(c.Name, c.Version), PURL: c.PURL,
+					License: c.License, LicenseRisk: c.LicenseRisk,
 					DependencyPaths: c.DependencyPaths, DependencyPathsTruncated: c.DependencyPathsTruncated}
 				unresolved[pkgKey] = pkg
 			}

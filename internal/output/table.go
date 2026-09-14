@@ -83,6 +83,12 @@ func (t Table) Render(w io.Writer, report any) error {
 	if tox := intField(totals, "Toxic"); tox > 0 {
 		fmt.Fprintf(tw, "  Toxic packages\t%d\n", tox)
 	}
+	if n := intField(totals, "LicenseHigh"); n > 0 {
+		fmt.Fprintf(tw, "  Risky licenses (copyleft / non-commercial)\t%s\n", c.crit(fmt.Sprintf("%d", n)))
+	}
+	if n := intField(totals, "LicenseMedium"); n > 0 {
+		fmt.Fprintf(tw, "  Weak-copyleft licenses\t%s\n", c.med(fmt.Sprintf("%d", n)))
+	}
 	if kev := intField(totals, "KEV"); kev > 0 {
 		fmt.Fprintf(tw, "  In CISA KEV\t%s\n", c.high(fmt.Sprintf("%d", kev)))
 	}
@@ -134,6 +140,7 @@ func (t Table) Render(w io.Writer, report any) error {
 		fmt.Fprintln(w, c.green("✓ No vulnerabilities or malware detected"))
 		fmt.Fprintln(w)
 		if !showAll {
+			renderLicenseRisks(w, c, components)
 			return nil
 		}
 	}
@@ -146,7 +153,7 @@ func (t Table) Render(w io.Writer, report any) error {
 	showLang := anyLanguageRelevance(components)
 	fg := &grid{}
 	if showLayer {
-		header := []string{"PACKAGE", "VERSION", "ECO", "LAYER", "VULNS", "FLAGS", "TOXIC", "ORIGIN"}
+		header := []string{"PACKAGE", "VERSION", "ECO", "LAYER", "VULNS", "FLAGS", "TOXIC", "LICENSE", "ORIGIN"}
 		if showLang {
 			header = append(header, "LANG")
 		}
@@ -154,7 +161,7 @@ func (t Table) Render(w io.Writer, report any) error {
 	} else {
 		// Non-image scans (SBOM / reachable): ORIGIN tells direct vs transitive,
 		// LANG the ecosystem language. Both are always shown here.
-		fg.add("PACKAGE", "VERSION", "ECO", "VULNS", "FLAGS", "TOXIC", "ORIGIN", "LANG")
+		fg.add("PACKAGE", "VERSION", "ECO", "VULNS", "FLAGS", "TOXIC", "LICENSE", "ORIGIN", "LANG")
 	}
 	// Vulnerable-first ordering is preserved by the earlier sort; in showAll
 	// mode the clean components simply trail after the affected ones.
@@ -225,6 +232,7 @@ func (t Table) Render(w io.Writer, report any) error {
 				fmt.Sprintf("%d", intField(comp, "VulnCount")),
 				strings.Join(flags, " "),
 				toxic,
+				licenseCell(c, comp),
 				c.origin(originLabel(stringField(comp, "System"), stringField(comp, "Origin"), transitive)),
 			}
 			if showLang {
@@ -239,6 +247,7 @@ func (t Table) Render(w io.Writer, report any) error {
 				fmt.Sprintf("%d", intField(comp, "VulnCount")),
 				strings.Join(flags, " "),
 				toxic,
+				licenseCell(c, comp),
 				depScopeCell(c, comp, transitive),
 				langCell(c, comp),
 			}
@@ -344,6 +353,7 @@ func (t Table) Render(w io.Writer, report any) error {
 	}
 
 	renderDependencyPaths(w, c, components)
+	renderLicenseRisks(w, c, components)
 
 	return nil
 }

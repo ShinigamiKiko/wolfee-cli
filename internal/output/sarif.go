@@ -118,11 +118,30 @@ func (SARIF) Render(w io.Writer, report any) error {
 		pkgLabel := fmt.Sprintf("%s/%s@%s", pkgEco, pkgName, pkgVer)
 
 		origin := stringField(c, "Origin")
+		license := stringField(c, "License")
+		licenseRisk := stringField(c, "LicenseRisk")
 		packageProps := func() map[string]any {
-			if origin == "" {
+			props := map[string]any{}
+			if origin != "" {
+				props["origin"] = origin
+			}
+			if license != "" {
+				props["license"] = license
+			}
+			if licenseRisk != "" {
+				props["licenseRisk"] = licenseRisk
+			}
+			if len(props) == 0 {
 				return nil
 			}
-			return map[string]any{"origin": origin}
+			return props
+		}
+
+		if res, rule, ok := licenseResult(pkgLabel, license, licenseRisk, packageProps()); ok {
+			if _, seen := rulesByID[rule.ID]; !seen {
+				rulesByID[rule.ID] = rule
+			}
+			results = append(results, res)
 		}
 
 		if mal := c.FieldByName("Malware"); mal.IsValid() && mal.FieldByName("Found").Bool() {
@@ -192,6 +211,37 @@ func (SARIF) Render(w io.Writer, report any) error {
 		Results: results,
 	}}
 	return encodeJSON(w, doc)
+}
+
+// licenseResult emits a compliance finding for a component whose license is
+// risky in production: error for strong/network copyleft or non-commercial
+// terms, warning for weak copyleft.
+func licenseResult(pkgLabel, license, risk string, props map[string]any) (sarifResult, sarifRule, bool) {
+	var id, level, desc string
+	switch risk {
+	case "high":
+		id, level = "WOLFEE-LICENSE-HIGH-RISK", "error"
+		desc = "Package uses a strong/network copyleft, source-available or non-commercial license"
+	case "medium":
+		id, level = "WOLFEE-LICENSE-WEAK-COPYLEFT", "warning"
+		desc = "Package uses a weak copyleft license"
+	default:
+		return sarifResult{}, sarifRule{}, false
+	}
+	rule := sarifRule{
+		ID:               id,
+		Name:             "LicenseRisk",
+		ShortDescription: sarifMessage{Text: desc},
+		Properties:       map[string]any{"tags": []string{"license", "compliance"}},
+	}
+	res := sarifResult{
+		RuleID:     id,
+		Level:      level,
+		Message:    sarifMessage{Text: fmt.Sprintf("%s is licensed under %s (license risk: %s)", pkgLabel, license, risk)},
+		Locations:  []sarifLocation{{LogicalLocations: []sarifLogicalLocation{{Name: pkgLabel, Kind: "package"}}}},
+		Properties: props,
+	}
+	return res, rule, true
 }
 
 func resultProps(v reflect.Value) map[string]any {

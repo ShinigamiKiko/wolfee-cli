@@ -129,7 +129,11 @@ func injectGovulncheckFindings(components *[]ComponentReport, oracle *reachabili
 		Relevant:          &relevant,
 		Class:             "lang-pkgs",
 		Type:              "golang",
+		// The Go standard library is BSD-3-Clause; govulncheck injects it without
+		// an SBOM entry, so there is no cdxgen license to carry over.
+		Licenses: []LicenseChoice{{License: &License{ID: "BSD-3-Clause"}}},
 	}
+	stdlib.License, stdlib.LicenseRisk = summarizeLicenses(stdlib.Licenses)
 	for _, goID := range stdlibIDs {
 		primaryID, aliasIDs := bestVulnID(goID, oracle.GOAliases[goID])
 		stdlib.Vulnerabilities = append(stdlib.Vulnerabilities, onlinescan.Vulnerability{

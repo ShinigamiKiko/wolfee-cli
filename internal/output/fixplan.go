@@ -20,13 +20,19 @@ func (f FixPlan) Render(w io.Writer, report any) error {
 	if v.Kind() != reflect.Struct {
 		return fmt.Errorf("fix-plan: unexpected report type %T", report)
 	}
+	c := newColors(!f.NoColor && os.Getenv("NO_COLOR") == "")
 	plan := indirectField(v, "FixPlan")
 	if !plan.IsValid() {
-		_, err := fmt.Fprintln(w, "No remediation plan available.")
-		return err
+		// No vulnerabilities to remediate, but license risks still need to be
+		// reported - they are findings of their own.
+		if _, err := fmt.Fprintln(w, "No remediation plan available."); err != nil {
+			return err
+		}
+		fmt.Fprintln(w)
+		renderLicenseRisks(w, c, fieldSlice(v, "Components"))
+		return nil
 	}
 
-	c := newColors(!f.NoColor && os.Getenv("NO_COLOR") == "")
 	fmt.Fprintln(w, c.bold("FIX PLAN"))
 	if source := stringField(v, "Source"); source != "" {
 		fmt.Fprintf(w, "%s %s\n", c.bold("Source:"), source)
@@ -34,6 +40,7 @@ func (f FixPlan) Render(w io.Writer, report any) error {
 	fmt.Fprintln(w)
 
 	renderFixPlanFindings(w, c, v)
+	renderLicenseRisks(w, c, fieldSlice(v, "Components"))
 
 	fmt.Fprintln(w, c.bold("REMEDIATION PLAN"))
 	fmt.Fprintln(w)
@@ -62,7 +69,7 @@ func (f FixPlan) Render(w io.Writer, report any) error {
 		}
 		fmt.Fprintf(w, "  %s %d %s\n", c.bold("Fixes:"), fixCount, label)
 		fg := &grid{}
-		fg.add("PACKAGE", "CVE", "SEV", "EPSS", "FIX", "FLAGS")
+		fg.add("PACKAGE", "CVE", "SEV", "EPSS", "FIX", "FLAGS", "LICENSE")
 		for j := 0; j < packages.Len(); j++ {
 			pkg := packages.Index(j)
 			name := stringField(pkg, "Package")
@@ -70,7 +77,8 @@ func (f FixPlan) Render(w io.Writer, report any) error {
 			for k := 0; k < vulns.Len(); k++ {
 				vuln := vulns.Index(k)
 				fg.add(c.high(name), coloredAdvisory(c, vuln), c.sev(stringField(vuln, "Severity")),
-					stringFieldValue(vuln, "EPSS"), c.green(stringField(vuln, "FixVersion")), vulnFlags(c, vuln))
+					stringFieldValue(vuln, "EPSS"), c.green(stringField(vuln, "FixVersion")), vulnFlags(c, vuln),
+					licenseCell(c, pkg))
 			}
 		}
 		fg.render(w)
@@ -107,14 +115,14 @@ func (f FixPlan) Render(w io.Writer, report any) error {
 	if unresolved.Len() > 0 {
 		fmt.Fprintln(w, c.bold("UNRESOLVED REMEDIATIONS"))
 		fg := &grid{}
-		fg.add("PACKAGE", "CVE", "SEV", "EPSS", "FIX", "FLAGS")
+		fg.add("PACKAGE", "CVE", "SEV", "EPSS", "FIX", "FLAGS", "LICENSE")
 		for i := 0; i < unresolved.Len(); i++ {
 			pkg := unresolved.Index(i)
 			vulns := fieldSlice(pkg, "Vulnerabilities")
 			for j := 0; j < vulns.Len(); j++ {
 				vuln := vulns.Index(j)
 				fg.add(c.high(stringField(pkg, "Package")), coloredAdvisory(c, vuln), c.sev(stringField(vuln, "Severity")),
-					stringFieldValue(vuln, "EPSS"), "", vulnFlags(c, vuln))
+					stringFieldValue(vuln, "EPSS"), "", vulnFlags(c, vuln), licenseCell(c, pkg))
 			}
 		}
 		fg.render(w)
@@ -155,6 +163,7 @@ type fixPlanFindingRow struct {
 	epss     string
 	fix      string
 	flags    string
+	license  string
 	rank     int
 }
 
@@ -176,7 +185,8 @@ func renderFixPlanFindings(w io.Writer, c colors, report reflect.Value) {
 				pkg: pkg, id: id, severity: severity,
 				epss: stringFieldValue(vuln, "EPSS"),
 				fix:  firstStringField(vuln, "Fixed"), flags: vulnFlags(c, vuln),
-				rank: severityRank(severity),
+				license: licenseCell(c, component),
+				rank:    severityRank(severity),
 			})
 		}
 	}
@@ -195,9 +205,9 @@ func renderFixPlanFindings(w io.Writer, c colors, report reflect.Value) {
 
 	fmt.Fprintf(w, "%s (%d)\n", c.bold("VULNERABILITIES"), len(rows))
 	grid := &grid{}
-	grid.add("PACKAGE", "CVE", "SEV", "EPSS", "FIX", "FLAGS")
+	grid.add("PACKAGE", "CVE", "SEV", "EPSS", "FIX", "FLAGS", "LICENSE")
 	for _, row := range rows {
-		grid.add(c.high(row.pkg), colorAdvisory(c, row.id, row.severity), c.sev(row.severity), row.epss, c.green(row.fix), row.flags)
+		grid.add(c.high(row.pkg), colorAdvisory(c, row.id, row.severity), c.sev(row.severity), row.epss, c.green(row.fix), row.flags, row.license)
 	}
 	grid.render(w)
 	fmt.Fprintln(w)

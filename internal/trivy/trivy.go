@@ -114,6 +114,7 @@ type Package struct {
 	Version    string
 	Arch       string
 	SrcName    string
+	Licenses   []string
 	Identifier Identifier
 	Layer      Layer
 }

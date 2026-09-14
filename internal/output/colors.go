@@ -34,6 +34,23 @@ func (c colors) sev(s string) string {
 	}
 }
 
+// license colours a license label by production risk: red for strong/network
+// copyleft or non-commercial terms, yellow for weak copyleft.
+func (c colors) license(label, risk string) string {
+	if label == "" {
+		return "-"
+	}
+	switch risk {
+	case "high":
+		return c.crit(label)
+	case "medium":
+		return c.med(label)
+	case "unknown":
+		return c.low(label)
+	}
+	return label
+}
+
 func (c colors) origin(label string) string {
 	switch label {
 	case "APP", "APP(T)":

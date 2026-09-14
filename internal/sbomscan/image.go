@@ -209,10 +209,31 @@ func buildImageReport(source string, ros *ReportOS, tr *trivy.Report, results []
 		target = source
 	}
 
+	licensesByKey := map[string][]string{}
+	for _, res := range tr.Results {
+		for _, p := range res.Packages {
+			if len(p.Licenses) == 0 {
+				continue
+			}
+			k := p.Identifier.PURL
+			if k == "" {
+				k = p.Name + "@" + p.Version
+			}
+			if _, ok := licensesByKey[k]; !ok {
+				licensesByKey[k] = p.Licenses
+			}
+		}
+	}
+
 	for _, res := range results {
 		vulns := dedupeVulns(res.Vulnerabilities)
 		topSev, vc := topAndCount(vulns)
+		licKey := res.PURL
+		if licKey == "" {
+			licKey = res.Name + "@" + res.Version
+		}
 		cr := ComponentReport{
+			Licenses:        trivyLicenses(licensesByKey[licKey]),
 			PURL:            res.PURL,
 			System:          res.System,
 			Name:            res.Name,
@@ -253,7 +274,9 @@ func buildImageReport(source string, ros *ReportOS, tr *trivy.Report, results []
 	}
 	markImageLibs(r.Components)
 	filterVulnsByVersion(r.Components)
+	annotateLicenses(r.Components)
 	computeImageTotals(r, reach, sourceLibs != nil)
+	countLicenseTotals(r)
 	return r
 }
 
