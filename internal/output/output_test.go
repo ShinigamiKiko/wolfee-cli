@@ -49,6 +49,7 @@ type tTotals struct {
 }
 type tComponent struct {
 	PURL            string
+	Group           string
 	License         string
 	LicenseRisk     string
 	System          string

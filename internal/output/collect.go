@@ -78,7 +78,7 @@ func collectTopVulns(components reflect.Value) []topVulnRow {
 	rows := []topVulnRow{}
 	for i := 0; i < components.Len(); i++ {
 		c := components.Index(i)
-		pkg := fmt.Sprintf("%s@%s", stringField(c, "Name"), stringField(c, "Version"))
+		pkg := fmt.Sprintf("%s@%s", qualifiedName(c), stringField(c, "Version"))
 		vulns := c.FieldByName("Vulnerabilities")
 		if !vulns.IsValid() {
 			continue
@@ -173,7 +173,7 @@ func collectReachableVulns(components reflect.Value) []topVulnRow {
 	var rows []topVulnRow
 	for i := 0; i < components.Len(); i++ {
 		c := components.Index(i)
-		pkg := fmt.Sprintf("%s@%s", stringField(c, "Name"), stringField(c, "Version"))
+		pkg := fmt.Sprintf("%s@%s", qualifiedName(c), stringField(c, "Version"))
 		vulns := c.FieldByName("Vulnerabilities")
 		if !vulns.IsValid() {
 			continue

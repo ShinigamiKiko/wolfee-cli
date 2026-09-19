@@ -112,7 +112,7 @@ func (SARIF) Render(w io.Writer, report any) error {
 
 	for i := 0; i < components.Len(); i++ {
 		c := components.Index(i)
-		pkgName := stringField(c, "Name")
+		pkgName := qualifiedName(c)
 		pkgVer := stringField(c, "Version")
 		pkgEco := strings.ToLower(stringField(c, "System"))
 		pkgLabel := fmt.Sprintf("%s/%s@%s", pkgEco, pkgName, pkgVer)
@@ -471,4 +471,16 @@ func encodeJSON(w io.Writer, v any) error {
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
 	return enc.Encode(v)
+}
+
+// qualifiedName is the package name with its group: symfony/yaml, not yaml;
+// @scope/pkg, not pkg. CycloneDX keeps the group apart from the name, and a
+// consumer looking the package up in a vulnerability database needs both.
+func qualifiedName(c reflect.Value) string {
+	name := stringField(c, "Name")
+	group := strings.TrimSuffix(stringField(c, "Group"), "/")
+	if group == "" || strings.HasPrefix(name, group+"/") {
+		return name
+	}
+	return group + "/" + name
 }
