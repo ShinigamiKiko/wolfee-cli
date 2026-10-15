@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -227,5 +228,48 @@ func TestSeverityRank_Ordering(t *testing.T) {
 			t.Errorf("severityRank(%q)=%d should be < %d", s, r, prev)
 		}
 		prev = r
+	}
+}
+
+type recordingLogger struct {
+	errors  []string
+	timeout bool
+}
+
+func (l *recordingLogger) Step(string)               {}
+func (l *recordingLogger) Warn(string, ...any)       {}
+func (l *recordingLogger) Debug(string, ...any)      {}
+func (l *recordingLogger) Progress(int, int, string) {}
+func (l *recordingLogger) TimeoutSeen() bool         { return l.timeout }
+func (l *recordingLogger) Error(format string, a ...any) {
+	l.errors = append(l.errors, fmt.Sprintf(format, a...))
+}
+
+func TestWarnIfIncomplete_AnyLookupFailure(t *testing.T) {
+	r := &sbomscan.Report{Components: []sbomscan.ComponentReport{
+		{Name: "lodash"},
+		{Name: "qs", Error: "osv request: dial tcp: connection refused"},
+	}}
+	log := &recordingLogger{}
+	if got := warnIfIncomplete(log, r); got != 1 {
+		t.Errorf("failed = %d, want 1", got)
+	}
+	if len(log.errors) != 1 || !strings.Contains(log.errors[0], "connection refused") {
+		t.Errorf("a non-timeout failure must be reported, got %v", log.errors)
+	}
+}
+
+func TestWarnIfIncomplete_EnrichmentTimeoutOnly(t *testing.T) {
+	log := &recordingLogger{timeout: true}
+	if got := warnIfIncomplete(log, &sbomscan.Report{}); got != 0 {
+		t.Errorf("failed = %d, want 0", got)
+	}
+	if len(log.errors) != 1 {
+		t.Errorf("an enrichment timeout must still be reported, got %v", log.errors)
+	}
+	log = &recordingLogger{}
+	warnIfIncomplete(log, &sbomscan.Report{})
+	if len(log.errors) != 0 {
+		t.Errorf("a complete scan must not print errors, got %v", log.errors)
 	}
 }

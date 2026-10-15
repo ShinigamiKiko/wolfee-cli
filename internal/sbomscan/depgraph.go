@@ -13,19 +13,22 @@ const (
 	maxDepVisits = 50000
 )
 
-func annotateDependencyPaths(r *Report) {
-	if r == nil || len(r.Dependencies) == 0 || len(r.Components) == 0 {
+// annotateDependencyPaths records, for every component, the chains from a
+// direct dependency down to it. extra edges (a manifest root, see manifestRoot)
+// join the SBOM's own graph.
+func annotateDependencyPaths(r *Report, extra ...Dependency) {
+	if r == nil || len(r.Components) == 0 {
+		return
+	}
+	deps := withExtraDeps(r.Dependencies, extra)
+	if len(deps) == 0 {
 		return
 	}
 
-	parents := make(map[string][]string, len(r.Dependencies))
-	hasChildren := make(map[string]bool, len(r.Dependencies))
-	for _, d := range r.Dependencies {
+	parents := make(map[string][]string, len(deps))
+	for _, d := range deps {
 		if d.Ref == "" {
 			continue
-		}
-		if len(d.DependsOn) > 0 {
-			hasChildren[d.Ref] = true
 		}
 		for _, on := range d.DependsOn {
 			if on == "" {
@@ -36,31 +39,13 @@ func annotateDependencyPaths(r *Report) {
 	}
 
 	label := make(map[string]string, len(r.Components))
-	version := make(map[string]string, len(r.Components))
-	appNode := make(map[string]bool)
 	for i := range r.Components {
 		c := &r.Components[i]
-		if c.BOMRef == "" {
-			continue
-		}
-		label[c.BOMRef] = pkgLabel(c.Name, c.Version)
-		version[c.BOMRef] = strings.TrimSpace(c.Version)
-		if strings.EqualFold(c.Type, "application") {
-			appNode[c.BOMRef] = true
+		if c.BOMRef != "" {
+			label[c.BOMRef] = pkgLabel(componentName(c), c.Version)
 		}
 	}
-
-	roots := map[string]bool{}
-	if r.Document != nil && r.Document.Metadata != nil && r.Document.Metadata.Component != nil {
-		if rr := r.Document.Metadata.Component.BOMRef; rr != "" {
-			roots[rr] = true
-		}
-	}
-	for ref := range hasChildren {
-		if appNode[ref] || version[ref] == "" {
-			roots[ref] = true
-		}
-	}
+	roots := graphRoots(r, deps)
 
 	for i := range r.Components {
 		c := &r.Components[i]
@@ -86,6 +71,63 @@ func annotateDependencyPaths(r *Report) {
 		c.DependencyPaths = out
 		c.DependencyPathsTruncated = truncated
 	}
+}
+
+func withExtraDeps(deps, extra []Dependency) []Dependency {
+	if len(extra) == 0 {
+		return deps
+	}
+	return append(append([]Dependency(nil), extra...), deps...)
+}
+
+// graphRoots returns the nodes that stand for the project itself: the SBOM's
+// metadata component, and any node with children that is an application or
+// has no version (a root cdxgen did not list as a component, or the manifest
+// root).
+func graphRoots(r *Report, deps []Dependency) map[string]bool {
+	version := make(map[string]string, len(r.Components))
+	appNode := make(map[string]bool)
+	for i := range r.Components {
+		c := &r.Components[i]
+		if c.BOMRef == "" {
+			continue
+		}
+		version[c.BOMRef] = strings.TrimSpace(c.Version)
+		if strings.EqualFold(c.Type, "application") {
+			appNode[c.BOMRef] = true
+		}
+	}
+
+	roots := map[string]bool{}
+	if r.Document != nil && r.Document.Metadata != nil && r.Document.Metadata.Component != nil {
+		if rr := r.Document.Metadata.Component.BOMRef; rr != "" {
+			roots[rr] = true
+		}
+	}
+	for _, d := range deps {
+		if d.Ref != "" && len(d.DependsOn) > 0 && (appNode[d.Ref] || version[d.Ref] == "") {
+			roots[d.Ref] = true
+		}
+	}
+	return roots
+}
+
+// rootChildren lists what the project depends on directly: the children of
+// its graph roots.
+func rootChildren(r *Report, deps []Dependency) map[string]bool {
+	roots := graphRoots(r, deps)
+	direct := map[string]bool{}
+	for _, d := range deps {
+		if !roots[d.Ref] {
+			continue
+		}
+		for _, on := range d.DependsOn {
+			if on != "" && !roots[on] {
+				direct[on] = true
+			}
+		}
+	}
+	return direct
 }
 
 func resolveDepPaths(target string, parents map[string][]string, roots map[string]bool) ([][]string, bool) {
@@ -167,6 +209,17 @@ func resolveDepPaths(target string, parents map[string][]string, roots map[strin
 		return strings.Join(out[i], ">") < strings.Join(out[j], ">")
 	})
 	return out, truncated
+}
+
+// componentName is the name with its group (symfony/yaml, @scope/pkg), as the
+// output's qualifiedName shows it, so packages of different vendors that share
+// a bare name (cache, core) get distinct labels.
+func componentName(c *ComponentReport) string {
+	group := strings.TrimSuffix(strings.TrimSpace(c.Group), "/")
+	if group == "" || strings.HasPrefix(c.Name, group+"/") {
+		return c.Name
+	}
+	return group + "/" + c.Name
 }
 
 func pkgLabel(name, version string) string {

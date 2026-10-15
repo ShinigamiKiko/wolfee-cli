@@ -75,6 +75,8 @@ const osvMaxPages = 5
 
 func queryOSV(ctx context.Context, hc *http.Client, purl string) (vulns []Vulnerability, mal Malware, err error) {
 	normalized := normalizePURLForOSV(purl)
+	installed := purlVersion(purl)
+	pkg := purlPackageKey(normalized)
 	pageToken := ""
 	for page := 0; page < osvMaxPages; page++ {
 		body, _ := json.Marshal(osvQueryReq{
@@ -120,7 +122,12 @@ func queryOSV(ctx context.Context, hc *http.Client, purl string) (vulns []Vulner
 				mal.MalIDs = appendUnique(mal.MalIDs, v.ID)
 				continue
 			}
-			vulns = append(vulns, mapOSV(v, purlVersion(purl)))
+			// Without a version OSV returns every advisory the package ever
+			// had. Only malware (any version) is meaningful then.
+			if installed == "" {
+				continue
+			}
+			vulns = append(vulns, mapOSV(v, installed, pkg))
 		}
 
 		if out.NextPageToken == "" {
@@ -131,7 +138,9 @@ func queryOSV(ctx context.Context, hc *http.Client, purl string) (vulns []Vulner
 	return vulns, mal, nil
 }
 
-func mapOSV(v osvVuln, installed string) Vulnerability {
+// mapOSV converts an OSV record for the package pkg (a purlPackageKey) at the
+// installed version.
+func mapOSV(v osvVuln, installed, pkg string) Vulnerability {
 	out := Vulnerability{
 		ID:          v.ID,
 		Aliases:     v.Aliases,
@@ -149,7 +158,7 @@ func mapOSV(v osvVuln, installed string) Vulnerability {
 	}
 	out.CWEs = extractOSVCWEs(v)
 	out.VulnerableSymbols = extractVulnSymbols(v)
-	out.Fixed = orderFixesForVersion(collectFixedVersions(v.Affected), installed)
+	out.Fixed = orderFixesForVersion(collectFixedVersions(v.Affected, pkg), installed)
 	out.DistroStatus = collectOSVDistroStatus(v)
 	return out
 }
@@ -316,10 +325,25 @@ func severityFromCVSS(f float64) string {
 	return SevUnknown
 }
 
-func collectFixedVersions(aff []osvAffected) []string {
+// collectFixedVersions lists the fixed versions for pkg. One advisory can cover
+// several packages with their own releases (laravel/framework 6.20.11 and
+// illuminate/database 6.20.12), so another package's fix must not be offered.
+// When no entry names pkg (e.g. a Debian binary package vs its source package),
+// every entry is used.
+func collectFixedVersions(aff []osvAffected, pkg string) []string {
+	own := aff[:0:0]
+	for _, a := range aff {
+		if pkg != "" && affectsPackage(a, pkg) {
+			own = append(own, a)
+		}
+	}
+	if len(own) == 0 {
+		own = aff
+	}
+
 	seen := map[string]struct{}{}
 	out := []string{}
-	for _, a := range aff {
+	for _, a := range own {
 		for _, r := range a.Ranges {
 			for _, e := range r.Events {
 				if e.Fixed == "" {
@@ -334,6 +358,53 @@ func collectFixedVersions(aff []osvAffected) []string {
 		}
 	}
 	return out
+}
+
+// purlPackageKey reduces a PURL to "type/name" for comparing it with an OSV
+// affected entry: lowercased, without version, qualifiers or subpath, %40 and
+// %2F decoded, and PyPI names normalised as pip does (PEP 503).
+func purlPackageKey(p string) string {
+	p = strings.ToLower(strings.TrimSpace(p))
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
+	}
+	rest, ok := strings.CutPrefix(p, "pkg:")
+	if !ok {
+		return ""
+	}
+	typ, name, ok := strings.Cut(rest, "/")
+	if !ok || name == "" {
+		return ""
+	}
+	if i := strings.LastIndexByte(name, '@'); i > 0 {
+		name = name[:i]
+	}
+	name = strings.ReplaceAll(name, "%40", "@")
+	name = strings.ReplaceAll(name, "%2f", "/")
+	if typ == "pypi" {
+		name = normalizePyPIName(name)
+	}
+	return typ + "/" + name
+}
+
+// affectsPackage reports whether an OSV affected entry is about pkg, by its
+// PURL when OSV gives one and by name otherwise (Maven names use ':').
+func affectsPackage(a osvAffected, pkg string) bool {
+	if a.Package.Purl != "" {
+		return purlPackageKey(a.Package.Purl) == pkg
+	}
+	typ, name, _ := strings.Cut(pkg, "/")
+	n := strings.ToLower(strings.ReplaceAll(a.Package.Name, ":", "/"))
+	if typ == "pypi" {
+		n = normalizePyPIName(n)
+	}
+	return n != "" && n == name
+}
+
+var pypiNameSeparators = regexp.MustCompile(`[-_.]+`)
+
+func normalizePyPIName(name string) string {
+	return pypiNameSeparators.ReplaceAllString(strings.ToLower(name), "-")
 }
 
 func pickCVE(id string, aliases []string) string {

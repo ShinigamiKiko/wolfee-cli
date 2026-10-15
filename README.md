@@ -326,6 +326,12 @@ wolfee ./my-app                      # auto-detect languages, match OSV
 wolfee --reachable ./my-app          # filter to reachable vulnerabilities only
 ```
 
+A package is `direct` when the project requires it itself, even if other
+packages pull it in too; the dependency graph's root tells. For a
+`composer.json` without a `name` (usual for applications) cdxgen leaves the
+root out, so wolfee takes the project's own requirements from `require` and
+`require-dev` in `composer.json`.
+
 ### Scan an existing SBOM
 
 ```bash
@@ -500,7 +506,7 @@ wolfee --image my-app:latest --fail-on high
 | Exit code | Meaning |
 |-----------|---------|
 | `0` | Clean — no findings above threshold |
-| `1` | Tool error (network, malformed SBOM, cdxgen failure) |
+| `1` | Tool error (network, malformed SBOM, cdxgen failure); with `--fail-on`, also when a component could not be checked against OSV |
 | `2` | Threshold breached (`--fail-on`) |
 
 ### GitHub Actions example

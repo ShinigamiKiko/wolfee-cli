@@ -63,7 +63,7 @@ func annotateRemediations(ctx context.Context, r *Report, hc *http.Client, log o
 	labelPurl := make(map[string]string, len(r.Components))
 	for i := range r.Components {
 		c := &r.Components[i]
-		labelPurl[pkgLabel(c.Name, c.Version)] = c.PURL
+		labelPurl[pkgLabel(componentName(c), c.Version)] = c.PURL
 	}
 
 	var targets []int

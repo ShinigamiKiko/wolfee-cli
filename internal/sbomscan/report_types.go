@@ -179,6 +179,11 @@ type ComponentReport struct {
 
 	Scope string `json:"scope,omitempty"`
 
+	// Direct is true for a package the project requires itself, false for one
+	// only other packages pull in, and nil when the SBOM's dependency graph
+	// has no root to tell.
+	Direct *bool `json:"direct,omitempty"`
+
 	PackageUsage string `json:"packageUsage,omitempty"`
 
 	Language          string `json:"language,omitempty"`
