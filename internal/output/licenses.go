@@ -55,7 +55,7 @@ func renderLicenseRisks(w io.Writer, c colors, components reflect.Value) {
 		default:
 			continue
 		}
-		pkg := fmt.Sprintf("%s@%s", stringField(comp, "Name"), stringField(comp, "Version"))
+		pkg := fmt.Sprintf("%s@%s", qualifiedName(comp), stringField(comp, "Version"))
 		if seen[pkg] {
 			continue
 		}

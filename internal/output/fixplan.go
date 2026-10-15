@@ -172,7 +172,7 @@ func renderFixPlanFindings(w io.Writer, c colors, report reflect.Value) {
 	rows := make([]fixPlanFindingRow, 0)
 	for i := 0; i < components.Len(); i++ {
 		component := components.Index(i)
-		pkg := fmt.Sprintf("%s@%s", stringField(component, "Name"), stringField(component, "Version"))
+		pkg := fmt.Sprintf("%s@%s", qualifiedName(component), stringField(component, "Version"))
 		vulns := fieldSlice(component, "Vulnerabilities")
 		for j := 0; j < vulns.Len(); j++ {
 			vuln := vulns.Index(j)

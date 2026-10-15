@@ -43,7 +43,7 @@ func annotateDependencyPaths(r *Report) {
 		if c.BOMRef == "" {
 			continue
 		}
-		label[c.BOMRef] = pkgLabel(c.Name, c.Version)
+		label[c.BOMRef] = pkgLabel(componentName(c), c.Version)
 		version[c.BOMRef] = strings.TrimSpace(c.Version)
 		if strings.EqualFold(c.Type, "application") {
 			appNode[c.BOMRef] = true
@@ -167,6 +167,17 @@ func resolveDepPaths(target string, parents map[string][]string, roots map[strin
 		return strings.Join(out[i], ">") < strings.Join(out[j], ">")
 	})
 	return out, truncated
+}
+
+// componentName is the name with its group (symfony/yaml, @scope/pkg), as the
+// output's qualifiedName shows it, so packages of different vendors that share
+// a bare name (cache, core) get distinct labels.
+func componentName(c *ComponentReport) string {
+	group := strings.TrimSuffix(strings.TrimSpace(c.Group), "/")
+	if group == "" || strings.HasPrefix(c.Name, group+"/") {
+		return c.Name
+	}
+	return group + "/" + c.Name
 }
 
 func pkgLabel(name, version string) string {

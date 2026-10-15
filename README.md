@@ -500,7 +500,7 @@ wolfee --image my-app:latest --fail-on high
 | Exit code | Meaning |
 |-----------|---------|
 | `0` | Clean — no findings above threshold |
-| `1` | Tool error (network, malformed SBOM, cdxgen failure) |
+| `1` | Tool error (network, malformed SBOM, cdxgen failure); with `--fail-on`, also when a component could not be checked against OSV |
 | `2` | Threshold breached (`--fail-on`) |
 
 ### GitHub Actions example

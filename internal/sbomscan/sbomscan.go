@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -184,6 +185,14 @@ func ScanBOM(ctx context.Context, o Options) (*Report, error) {
 		k := key{sys, purlName, ver, c.Purl}
 		groups[k] = append(groups[k], i)
 	}
+
+	var versionless []string
+	for k := range groups {
+		if k.ver == "" {
+			versionless = append(versionless, k.name)
+		}
+	}
+	warnVersionless(o.Logger, versionless)
 
 	uniques := make([]onlinescan.Component, 0, len(groups))
 	uniqIdx := make(map[key]int, len(groups))
@@ -383,4 +392,18 @@ func reportOSToOnlineOS(o *ReportOS) *onlinescan.ImageOS {
 		Codename: o.Codename,
 		Arch:     o.Arch,
 	}
+}
+
+// warnVersionless flags components without a version: OSV cannot tell which
+// advisories apply to them, so only malware checks run.
+func warnVersionless(log output.Logger, names []string) {
+	if log == nil || len(names) == 0 {
+		return
+	}
+	sort.Strings(names)
+	examples := names
+	if len(examples) > 5 {
+		examples = examples[:5]
+	}
+	log.Warn("%d component(s) have no version - not matched against vulnerability data, only malware checks apply (e.g. %s)", len(names), strings.Join(examples, ", "))
 }

@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// exitToolError matches main's exit code for any other tool error.
+const exitToolError = 1
+
 type exitError struct {
 	code int
 	msg  string

@@ -62,3 +62,42 @@ func TestBuildFixPlanGroupsPackagesAndKeepsUnresolved(t *testing.T) {
 		t.Errorf("missing OSV fallback group: %#v", plan.Groups)
 	}
 }
+
+func TestBuildFixPlanKeepsVendorsApart(t *testing.T) {
+	vuln := func(id string) []onlinescan.Vulnerability {
+		return []onlinescan.Vulnerability{{ID: id, Severity: onlinescan.SevHigh, Fixed: []string{"5.4.45"}}}
+	}
+	r := &Report{Components: []ComponentReport{
+		{PURL: "pkg:composer/symfony/cache@v5.4.3", Group: "symfony", Name: "cache", Version: "v5.4.3", Vulnerabilities: vuln("CVE-A")},
+		{PURL: "pkg:composer/illuminate/cache@v5.4.3", Group: "illuminate", Name: "cache", Version: "v5.4.3", Vulnerabilities: vuln("CVE-B")},
+	}}
+
+	plan := BuildFixPlan(r)
+	if len(plan.Groups) != 2 {
+		t.Fatalf("same bare name from two vendors must not share a group: %#v", plan.Groups)
+	}
+	got := map[string]string{}
+	for _, g := range plan.Groups {
+		got[g.Direct] = g.Packages[0].Package
+	}
+	if got["symfony/cache"] != "symfony/cache@v5.4.3" || got["illuminate/cache"] != "illuminate/cache@v5.4.3" {
+		t.Errorf("groups/packages must carry the vendor, got %v", got)
+	}
+}
+
+func TestComponentName(t *testing.T) {
+	cases := []struct {
+		group, name, want string
+	}{
+		{"symfony", "yaml", "symfony/yaml"},
+		{"@babel", "core", "@babel/core"},
+		{"symfony/", "yaml", "symfony/yaml"},
+		{"symfony", "symfony/yaml", "symfony/yaml"},
+		{"", "lodash", "lodash"},
+	}
+	for _, tc := range cases {
+		if got := componentName(&ComponentReport{Group: tc.group, Name: tc.name}); got != tc.want {
+			t.Errorf("componentName(%q, %q) = %q, want %q", tc.group, tc.name, got, tc.want)
+		}
+	}
+}

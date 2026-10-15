@@ -151,6 +151,7 @@ func (t Table) Render(w io.Writer, report any) error {
 		fmt.Fprintln(w, c.bold("Findings"))
 	}
 	showLang := anyLanguageRelevance(components)
+	hasGraph := hasDependencyGraph(v)
 	fg := &grid{}
 	if showLayer {
 		header := []string{"PACKAGE", "VERSION", "ECO", "LAYER", "VULNS", "FLAGS", "TOXIC", "LICENSE", "ORIGIN"}
@@ -214,7 +215,8 @@ func (t Table) Render(w io.Writer, report any) error {
 			flags = append(flags, c.green("not-used"))
 		}
 
-		transitive := strings.EqualFold(stringField(comp, "Scope"), "optional") || usage == "used-transitive"
+		optional := strings.EqualFold(stringField(comp, "Scope"), "optional")
+		transitive := optional || usage == "used-transitive"
 		lang := ""
 		if showLang {
 			relevant, known := relevantField(comp, "Relevant")
@@ -225,7 +227,7 @@ func (t Table) Render(w io.Writer, report any) error {
 		}
 		if showLayer {
 			cells := []string{
-				stringField(comp, "Name"),
+				qualifiedName(comp),
 				stringField(comp, "Version"),
 				strings.ToLower(stringField(comp, "System")),
 				shortDigest(stringField(comp, "LayerDigest")),
@@ -241,14 +243,14 @@ func (t Table) Render(w io.Writer, report any) error {
 			fg.add(cells...)
 		} else {
 			cells := []string{
-				stringField(comp, "Name"),
+				qualifiedName(comp),
 				stringField(comp, "Version"),
 				strings.ToLower(stringField(comp, "System")),
 				fmt.Sprintf("%d", intField(comp, "VulnCount")),
 				strings.Join(flags, " "),
 				toxic,
 				licenseCell(c, comp),
-				depScopeCell(c, comp, transitive),
+				depScopeCell(c, comp, usage == "used-transitive" || (optional && !hasGraph)),
 				langCell(c, comp),
 			}
 			fg.add(cells...)
@@ -377,7 +379,7 @@ func renderDependencyPaths(w io.Writer, c colors, components reflect.Value) {
 		}
 		vulns := comp.FieldByName("Vulnerabilities")
 		hasVulns := vulns.IsValid() && vulns.Len() > 0
-		pkg := fmt.Sprintf("%s@%s", stringField(comp, "Name"), stringField(comp, "Version"))
+		pkg := fmt.Sprintf("%s@%s", qualifiedName(comp), stringField(comp, "Version"))
 		switch {
 		case hasVulns:
 			direct, fixVer, via, note := remediationParts(comp)
@@ -485,12 +487,19 @@ func toxicRemediationParts(comp reflect.Value) (direct, fixVer, via, note string
 
 // depScopeCell renders the ORIGIN cell for non-image scans: whether the package
 // is a direct dependency or pulled in transitively. A recorded dependency path
-// (or an optional/used-transitive scope) means transitive.
+// (or used-transitive usage) means transitive. The optional scope only counts
+// when the SBOM has no dependency graph: cdxgen marks dev dependencies
+// (require-dev, devDependencies) optional too, though they are direct.
 func depScopeCell(c colors, comp reflect.Value, transitive bool) string {
 	if transitive || len(stringMatrixField(comp, "DependencyPaths")) > 0 {
 		return c.low("transitive")
 	}
 	return "direct"
+}
+
+func hasDependencyGraph(report reflect.Value) bool {
+	deps := report.FieldByName("Dependencies")
+	return deps.IsValid() && deps.Kind() == reflect.Slice && deps.Len() > 0
 }
 
 // langCell renders the LANG cell. With reachability data it keeps the

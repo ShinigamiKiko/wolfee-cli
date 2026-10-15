@@ -73,7 +73,8 @@ OUTPUT:
   --format FMT       table | json | sarif | fix-plan (default: table)
   --output PATH      Write report to file instead of stdout
   --fail-on LEVEL    Exit non-zero if a finding >= LEVEL exists: none|low|medium|high|critical
-                     (default: none - never fail on findings)
+                     (default: none - never fail on findings). Exits 1 when
+                     a component could not be checked (e.g. OSV unreachable)
   --quiet            Suppress progress logs
 
 SERVER UPLOAD (optional - fire-and-forget alongside local output):

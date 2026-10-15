@@ -59,6 +59,7 @@ func BuildFixPlan(r *Report) *FixPlan {
 	seen := make(map[string]bool)
 
 	for _, c := range r.Components {
+		name := componentName(&c)
 		for _, v := range c.Vulnerabilities {
 			id := v.ID
 			if id == "" {
@@ -73,7 +74,7 @@ func BuildFixPlan(r *Report) *FixPlan {
 				// cdxgen supplies the dependency graph and OSV supplies the known
 				// fixed version. Do not parse a package-manager lockfile here.
 				rem = &onlinescan.Remediation{
-					Direct: c.Name, CurrentVersion: c.Version,
+					Direct: name, CurrentVersion: c.Version,
 					FixVersion: v.Fixed[0], ChildFixed: v.Fixed[0],
 					Via: "osv-fixed", Note: "fixed version from OSV; parent upgrade was not resolved",
 				}
@@ -95,11 +96,11 @@ func BuildFixPlan(r *Report) *FixPlan {
 				}
 				pkgKey := c.PURL
 				if pkgKey == "" {
-					pkgKey = c.Name + "\x00" + c.Version
+					pkgKey = name + "\x00" + c.Version
 				}
 				pkg := groupPackages[groupKey][pkgKey]
 				if pkg == nil {
-					pkg = &FixPlanPackage{Package: pkgLabel(c.Name, c.Version), PURL: c.PURL,
+					pkg = &FixPlanPackage{Package: pkgLabel(name, c.Version), PURL: c.PURL,
 						License: c.License, LicenseRisk: c.LicenseRisk,
 						DependencyPaths: c.DependencyPaths, DependencyPathsTruncated: c.DependencyPathsTruncated}
 					groupPackages[groupKey][pkgKey] = pkg
@@ -119,11 +120,11 @@ func BuildFixPlan(r *Report) *FixPlan {
 			seen[vulnKey] = true
 			pkgKey := c.PURL
 			if pkgKey == "" {
-				pkgKey = c.Name + "\x00" + c.Version
+				pkgKey = name + "\x00" + c.Version
 			}
 			pkg := unresolved[pkgKey]
 			if pkg == nil {
-				pkg = &FixPlanPackage{Package: pkgLabel(c.Name, c.Version), PURL: c.PURL,
+				pkg = &FixPlanPackage{Package: pkgLabel(name, c.Version), PURL: c.PURL,
 					License: c.License, LicenseRisk: c.LicenseRisk,
 					DependencyPaths: c.DependencyPaths, DependencyPathsTruncated: c.DependencyPathsTruncated}
 				unresolved[pkgKey] = pkg
