@@ -88,3 +88,64 @@ func TestTable_ComponentsShowGroup(t *testing.T) {
 		t.Errorf("row = %q", row)
 	}
 }
+
+type directComponent struct {
+	PURL            string
+	Group           string
+	System          string
+	Name            string
+	Version         string
+	Direct          *bool
+	TopSeverity     string
+	VulnCount       int
+	DependencyPaths [][]string
+	Vulnerabilities []tVuln
+}
+
+type directReport struct {
+	Source     string
+	Totals     tTotals
+	Components []directComponent
+}
+
+func TestTable_DirectFieldDrivesOriginAndStar(t *testing.T) {
+	yes, no := true, false
+	vuln := []tVuln{{Severity: "HIGH", ID: "GHSA-twig", CVE: "CVE-2026-49981"}}
+	r := &directReport{
+		Source: "fs:./app",
+		Totals: tTotals{Components: 2, Scanned: 2, WithVulns: 2, HIGH: 2},
+		Components: []directComponent{
+			// Required by composer.json and by twig-bundle.
+			{PURL: "pkg:composer/twig/twig@v3.8.0", Group: "twig", System: "PACKAGIST", Name: "twig", Version: "v3.8.0",
+				Direct: &yes, TopSeverity: "HIGH", VulnCount: 1, Vulnerabilities: vuln,
+				DependencyPaths: [][]string{{"symfony/twig-bundle@v5.4.31", "twig/twig@v3.8.0"}}},
+			{PURL: "pkg:composer/guzzlehttp/psr7@2.4.5", Group: "guzzlehttp", System: "PACKAGIST", Name: "psr7", Version: "2.4.5",
+				Direct: &no, TopSeverity: "HIGH", VulnCount: 1, Vulnerabilities: vuln,
+				DependencyPaths: [][]string{{"guzzlehttp/guzzle@7.6.1", "guzzlehttp/psr7@2.4.5"}}},
+		},
+	}
+	var buf bytes.Buffer
+	if err := (Table{NoColor: true}).Render(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	for _, line := range strings.Split(out, "\n") {
+		l := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(l, "twig/twig ") && !strings.Contains(l, "direct"):
+			t.Errorf("twig is required by the project: %q", line)
+		case strings.HasPrefix(l, "guzzlehttp/psr7 ") && !strings.Contains(l, "transitive"):
+			t.Errorf("psr7 is only pulled in by guzzle: %q", line)
+		}
+	}
+	if !strings.Contains(out, "*twig/twig@v3.8.0 (vuln) direct dependency") {
+		t.Errorf("a direct dependency must carry the star itself:\n%s", out)
+	}
+	if strings.Contains(out, "*symfony/twig-bundle") {
+		t.Errorf("the parent of a direct dependency must not be marked for update:\n%s", out)
+	}
+	if !strings.Contains(out, "*guzzlehttp/guzzle@7.6.1 -> guzzlehttp/psr7@2.4.5") {
+		t.Errorf("a transitive dependency keeps the star on its direct parent:\n%s", out)
+	}
+}

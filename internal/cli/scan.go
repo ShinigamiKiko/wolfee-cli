@@ -129,6 +129,7 @@ func runScan(ctx context.Context, args []string) error {
 					TrivyDBSkip:   o.trivyDBSkip,
 					TrivyDBMirror: o.trivyDBMirror,
 					Reachability:  reach,
+					ProjectDir:    abs,
 				})
 				if err != nil {
 					logger.Warn("compare: source SBOM scan failed: %v - image findings only", err)
@@ -188,6 +189,7 @@ func runScan(ctx context.Context, args []string) error {
 			TrivyDBSkip:   o.trivyDBSkip,
 			TrivyDBMirror: o.trivyDBMirror,
 			Reachability:  reach,
+			ProjectDir:    o.projectDir(),
 		})
 		if err != nil {
 			return fmt.Errorf("scan: %w", err)
@@ -246,6 +248,15 @@ func runScan(ctx context.Context, args []string) error {
 		return &exitError{code: exitToolError, msg: fmt.Sprintf("%d component(s) could not be checked - cannot evaluate --fail-on=%s", failed, o.failOn)}
 	}
 	return nil
+}
+
+// projectDir is the source directory cdxgen catalogued (path and --reachable
+// modes), or "" when the input is an SBOM or a single PURL.
+func (o *scanOpts) projectDir() string {
+	if o.path != "" {
+		return o.path
+	}
+	return o.reachable
 }
 
 // warnIfIncomplete prints a loud red ERROR line when the scan could not fetch

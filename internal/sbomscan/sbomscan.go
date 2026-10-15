@@ -32,6 +32,10 @@ type Options struct {
 	TrivyDBMirror string
 
 	Reachability *reachability.Result
+
+	// ProjectDir is the scanned source directory, if any. Its manifest
+	// supplies the project's direct dependencies when the SBOM lacks them.
+	ProjectDir string
 }
 
 type ExtraPackage struct {
@@ -300,16 +304,22 @@ func ScanBOM(ctx context.Context, o Options) (*Report, error) {
 	backfillSyntheticSeverities(ctx, &r.Components, o)
 	filterVulnsByVersion(r.Components)
 
-	annotateDependencyPaths(r)
+	root := manifestRoot(r, o.ProjectDir)
+	annotateDependencyPaths(r, root...)
+	annotateDirect(r, root...)
 	annotateRemediations(ctx, r, onlinescan.DefaultHTTPClient(), o.Logger)
 	r.FixPlan = BuildFixPlan(r)
 
 	seenCVE := map[string]struct{}{}
 	for _, c := range r.Components {
-		if strings.ToLower(c.Scope) == "required" {
-			r.Totals.Direct++
-		} else {
-			r.Totals.Transitive++
+		// Scope tells production from dev dependencies, not direct from
+		// transitive: only the dependency graph does.
+		if c.Direct != nil {
+			if *c.Direct {
+				r.Totals.Direct++
+			} else {
+				r.Totals.Transitive++
+			}
 		}
 		if c.VulnCount > 0 {
 			r.Totals.WithVulns++

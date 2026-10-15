@@ -326,6 +326,12 @@ wolfee ./my-app                      # auto-detect languages, match OSV
 wolfee --reachable ./my-app          # filter to reachable vulnerabilities only
 ```
 
+A package is `direct` when the project requires it itself, even if other
+packages pull it in too; the dependency graph's root tells. For a
+`composer.json` without a `name` (usual for applications) cdxgen leaves the
+root out, so wolfee takes the project's own requirements from `require` and
+`require-dev` in `composer.json`.
+
 ### Scan an existing SBOM
 
 ```bash
